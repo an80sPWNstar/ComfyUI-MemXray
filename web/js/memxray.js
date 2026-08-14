@@ -114,7 +114,7 @@ const state = {
     series: {
         t: [], private_ws: [], private_bytes: [], paged_out: [], mapped_ws: [],
         in_use: [], modified: [], standby: [], free: [], phys_total: [],
-        page_reads_sec: [], evicted_max: [], pagefile_delta: [],
+        page_reads_sec: [], evicted_max: [], pagefile_delta: [], phys_avail: [],
     },
     markers: [],
     windowSeconds: 300,
@@ -123,10 +123,38 @@ const state = {
     lastVerdict: null,
     lastStatus: "ok", // "ok" | "unreachable"
     surfaces: new Map(), // id -> { root, canvas, ctx, header refs... }
+    // Which of the four views (tiers/models/headroom/details) is on screen.
+    // One shared choice across every surface (sidebar tab + floating panel
+    // both show the same view), persisted in the existing panel-prefs blob.
+    activeView: "tiers",
 };
+
+// loadPanelPrefs is a `function` declaration further down this file, so it
+// is fully hoisted and safe to call here at module-evaluation time.
+(function restoreActiveView() {
+    const prefs = loadPanelPrefs();
+    const v = prefs && prefs.view;
+    if (v === "tiers" || v === "models" || v === "headroom" || v === "details") {
+        state.activeView = v;
+    }
+})();
 
 function surfaceCount() {
     return state.visibleSurfaces.size;
+}
+
+// Changes the shared view and pushes it out to every surface currently
+// built (sidebar tab, floating panel) so they never disagree, then persists
+// the choice into the same localStorage blob the floating panel already
+// uses for position/size.
+function setActiveView(view) {
+    state.activeView = view;
+    const prefs = loadPanelPrefs();
+    prefs.view = view;
+    savePanelPrefs(prefs);
+    for (const surf of state.surfaces.values()) {
+        surf.applyView(view);
+    }
 }
 
 // ---- polling ---------------------------------------------------------------
@@ -140,7 +168,7 @@ async function backfillHistory() {
         state.series.t = t.slice(-MAX_POINTS);
         const keys = ["private_ws", "private_bytes", "paged_out", "mapped_ws",
             "in_use", "modified", "standby", "free", "phys_total", "page_reads_sec",
-            "evicted_max", "pagefile_delta"];
+            "evicted_max", "pagefile_delta", "phys_avail"];
         for (const k of keys) {
             const arr = Array.isArray(series[k]) ? series[k] : [];
             state.series[k] = arr.slice(-MAX_POINTS);
@@ -169,6 +197,7 @@ function appendSample(now) {
     state.series.page_reads_sec.push(num(faults.page_reads_sec));
     state.series.evicted_max.push(num(proc.evicted_max));
     state.series.pagefile_delta.push(num(sys.pagefile_delta));
+    state.series.phys_avail.push(num(sys.phys_avail));
 
     for (const k of Object.keys(state.series)) {
         if (state.series[k].length > MAX_POINTS) {
@@ -231,6 +260,10 @@ function onSurfaceHidden(id) {
 // Three stacked panels sharing one x axis, oldest sample on the left.
 
 const PAGEFILE_GROWTH_THRESHOLD = 1024 * 1024; // 1 MB/s, "the pagefile is growing"
+const IO_READ_THRESHOLD = 20 * 1024 * 1024;     // 20 MB/s, "actively reading a checkpoint off disk"
+const EVICT_LINE = 2 * 1024 * 1024 * 1024;      // 2 GB headroom - below this Windows starts making room
+const MODEL_SPILL_WARN = 512 * 1024 * 1024;     // 512 MB - below this the Models view stays quiet about the pagefile
+const GB = 1024 * 1024 * 1024;
 const PAD_L = 10;
 const PAD_R = 10;
 const TITLE_BAND = 22;   // room for the title + legend, so text never sits on data
@@ -528,19 +561,43 @@ function drawPanelC(ctx, x0, x1, panel, start, n, xAt) {
     scaleTag(ctx, x1, py0, `${maxV.toFixed(0)}/s`);
 }
 
+// Shared by the Details canvas axis and the Headroom strip axis (DOM), so
+// both spell out "5 minutes ago" the same way. Round to one decimal rather
+// than to whole minutes: a 5m window's midpoint is 2.5m, and rounding it to
+// "3m" mislabels the axis.
+function formatWindowStamp(secs) {
+    if (secs < 60) return `${Math.round(secs)}s`;
+    const m = secs / 60;
+    return `${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}m`;
+}
+
+// Same rounding rule as formatWindowStamp, for a duration since some past
+// event rather than a window width ("crossed the line 4m ago").
+function formatDuration(secs) {
+    return formatWindowStamp(Math.max(0, secs));
+}
+
+// Finds the first sample index whose timestamp falls within the trailing
+// windowSeconds of the series - the same slicing drawPanels does per-panel,
+// factored out so the Headroom view (plain DOM, not canvas) can apply an
+// identical window without duplicating the scan.
+function windowStart(tArr, windowSeconds) {
+    const n = tArr.length;
+    if (n === 0) return 0;
+    const tMax = tArr[n - 1];
+    const tMin = tMax - windowSeconds;
+    let start = 0;
+    while (start < n - 1 && tArr[start] < tMin) start++;
+    return start;
+}
+
 function drawTimeAxis(ctx, x0, x1, yTop, cssH) {
     ctx.font = `9px ${FONT_NUM}`;
     ctx.textBaseline = "middle";
     ctx.fillStyle = COLORS.ink3;
     const y = yTop + AXIS_BAND / 2;
     const win = state.windowSeconds;
-    // Round to one decimal rather than to whole minutes: a 5m window's
-    // midpoint is 2.5m, and rounding it to "-3m" mislabels the axis.
-    const stamp = (secs) => {
-        if (secs < 60) return `-${Math.round(secs)}s`;
-        const m = secs / 60;
-        return `-${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}m`;
-    };
+    const stamp = (secs) => `-${formatWindowStamp(secs)}`;
     ctx.textAlign = "left";
     ctx.fillText(stamp(win), x0, y);
     ctx.textAlign = "center";
@@ -606,7 +663,13 @@ function drawCrosshair(ctx, panels, xAt, start, n) {
 // it. The backend's own text is rendered verbatim underneath.
 const LEVEL_WORD = { ok: "in RAM", mapped: "in RAM", warn: "mixed", alarm: "pagefile" };
 
-function updateHeader(surf) {
+// Split from the old monolithic updateHeader now that the panel has four
+// views: this half covers what the spec keeps ALWAYS visible regardless of
+// which view is active (verdict, hero + density strip + its key, caveat).
+// The Details-only readouts (committed/pagefile/hard-faults tiles, models
+// summary line) moved to updateDetailsTiles below, so they are only
+// recomputed while that tab is actually on screen.
+function updateHeaderCommon(surf) {
     const st = state.static;
     const now = state._lastNow;
     const verdict = state.lastVerdict;
@@ -630,8 +693,6 @@ function updateHeader(surf) {
     }
 
     const proc = (now && now.proc) || {};
-    const sys = (now && now.sys) || {};
-    const models = (now && now.models) || {};
 
     const resident = num(proc.private_ws);
     const mapped = num(proc.mapped_ws);
@@ -667,28 +728,6 @@ function updateHeader(surf) {
     surf.keys.evicted.item.title = "upper bound: min(non-resident private bytes, system pagefile in use)";
     surf.keys.untouched.item.title = "committed address space that was never touched - never written to disk";
 
-    surf.tiles.committed.value.textContent = human(proc.private_bytes);
-    surf.tiles.pagefile.value.textContent = human(sys.pagefile_used);
-    surf.tiles.pagefile.sub.textContent = `of ${human(sys.pagefile_size)}`;
-    const reads = num(now && now.faults && now.faults.page_reads_sec);
-    surf.tiles.hardReads.value.textContent = `${reads.toFixed(0)}/s`;
-    // pagefile_delta is the one number that actually confirms pagefile growth
-    // (page_reads_sec fires for mapped-file faults too), so it is the only
-    // readout allowed to turn critical.
-    const pfDelta = num(sys.pagefile_delta);
-    const growing = pfDelta > 1024 * 1024;
-    surf.tiles.pagefileTrend.value.textContent = formatRate(pfDelta);
-    surf.tiles.pagefileTrend.value.dataset.state = growing ? "critical" : "";
-    surf.tiles.hardReads.sub.textContent = growing ? "pagefile growing" : "disk, cause unproven";
-
-    const modelList = Array.isArray(models.models) ? models.models : [];
-    const gpus = Array.isArray(models.gpus) ? models.gpus : [];
-    let modelsLine = `${num(models.count)} model(s) - on device ${human(models.on_device_bytes)} - offloaded ${human(models.offloaded_bytes)}`;
-    if (gpus.length) {
-        modelsLine += "  |  " + gpus.map((g) => `GPU${num(g.index)} ${human(g.used)}/${human(g.total)}`).join("  ");
-    }
-    surf.modelsLine.textContent = modelsLine;
-
     const pdhOff = st && st.pdh === false;
     const wsEstimated = proc.private_ws_estimated === true;
     if (pdhOff || wsEstimated) {
@@ -698,6 +737,392 @@ function updateHeader(surf) {
     } else {
         surf.caveat.style.display = "none";
     }
+}
+
+// Details-only: the secondary tiles and the models summary line that used to
+// sit under the strip. Only called while the Details tab is the active view.
+function updateDetailsTiles(surf) {
+    if (state.lastStatus === "unreachable") return;
+    const now = state._lastNow;
+    const proc = (now && now.proc) || {};
+    const sys = (now && now.sys) || {};
+    const models = (now && now.models) || {};
+
+    surf.tiles.committed.value.textContent = human(proc.private_bytes);
+    surf.tiles.pagefile.value.textContent = human(sys.pagefile_used);
+    surf.tiles.pagefile.sub.textContent = `of ${human(sys.pagefile_size)}`;
+    const reads = num(now && now.faults && now.faults.page_reads_sec);
+    surf.tiles.hardReads.value.textContent = `${reads.toFixed(0)}/s`;
+    // pagefile_delta is the one number that actually confirms pagefile growth
+    // (page_reads_sec fires for mapped-file faults too), so it is the only
+    // readout allowed to turn critical.
+    const pfDelta = num(sys.pagefile_delta);
+    const growing = pfDelta > PAGEFILE_GROWTH_THRESHOLD;
+    surf.tiles.pagefileTrend.value.textContent = formatRate(pfDelta);
+    surf.tiles.pagefileTrend.value.dataset.state = growing ? "critical" : "";
+    surf.tiles.hardReads.sub.textContent = growing ? "pagefile growing" : "disk, cause unproven";
+
+    const gpus = Array.isArray(models.gpus) ? models.gpus : [];
+    let modelsLine = `${num(models.count)} model(s) - on device ${human(models.on_device_bytes)} - offloaded ${human(models.offloaded_bytes)}`;
+    if (gpus.length) {
+        modelsLine += "  |  " + gpus.map((g) => {
+            const used = typeof g.used === "number" ? human(g.used) : "unknown";
+            const total = typeof g.total === "number" ? human(g.total) : "unknown";
+            return `GPU${num(g.index)} ${used}/${total}`;
+        }).join("  ");
+    }
+    surf.modelsLine.textContent = modelsLine;
+}
+
+// ---- Tiers / Models / Headroom views ---------------------------------------
+// Three ways to look at the same live feed, ported from the approved
+// memxray-variants.html mockup. All plain DOM (not canvas) - each is built
+// once in buildSurface and repopulated here on every poll while it is the
+// active view. Built with createElement/textContent throughout, not
+// innerHTML: model names come from the backend (arbitrary checkpoint
+// filenames), and this way there is nothing to escape.
+
+// A segmented-track slice: width via flex-grow (so segments always sum to
+// the whole with no pixel math), a title tooltip with the exact figure, and
+// the label text only when the slice is wide enough to hold it - the same
+// 14% heuristic the mockup used.
+function buildTierSeg(cls, value, total, label) {
+    if (value <= 0) return null;
+    const share = value / Math.max(1, total);
+    const seg = document.createElement("div");
+    seg.className = `memxray-tier-seg ${cls}`;
+    seg.style.flexGrow = String(share);
+    seg.title = label ? `${label} ${human(value)}` : human(value);
+    if (label && share > 0.14) seg.textContent = label;
+    return seg;
+}
+
+// A GPU whose used/free torch couldn't read - render an honest "unknown"
+// rather than a zero-width bar or a fabricated split.
+function buildUnknownSeg() {
+    const seg = document.createElement("div");
+    seg.className = "memxray-tier-seg memxray-seg-unknown";
+    seg.style.flexGrow = "1";
+    seg.textContent = "unknown";
+    seg.title = "GPU memory unreadable on this box";
+    return seg;
+}
+
+// "NVIDIA GeForce RTX 2080 SUPER" -> "RTX 2080 SUPER" - short enough to sit
+// next to a 30px-tall track without wrapping.
+function shortGpuName(name, index) {
+    const n = (name || "").toString().trim();
+    const stripped = n.replace(/^NVIDIA\s+/i, "").replace(/^GeForce\s+/i, "").replace(/^Tesla\s+/i, "");
+    return stripped || `GPU ${num(index)}`;
+}
+
+function gpuNameFor(model, gpus) {
+    const idx = model && model.device_index;
+    if (typeof idx === "number" && gpus[idx] && gpus[idx].name) {
+        return shortGpuName(gpus[idx].name, idx);
+    }
+    return (model && model.device) || "the card";
+}
+
+// --- View A: Tiers -----------------------------------------------------------
+
+function updateTiersView(surf) {
+    const now = state._lastNow;
+    const proc = (now && now.proc) || {};
+    const sys = (now && now.sys) || {};
+    const models = (now && now.models) || {};
+    const gpus = Array.isArray(models.gpus) ? models.gpus : [];
+    const t = surf.tiers;
+
+    // VRAM lane: one track per card. "used/free" only - there is no way to
+    // attribute VRAM to ComfyUI specifically versus any other CUDA context
+    // sharing the card, so unlike the other two lanes this one does not
+    // split out a ComfyUI slice.
+    const vramTotal = gpus.reduce((a, g) => a + num(g.total), 0);
+    const vramUsedKnown = gpus.every((g) => typeof g.used === "number");
+    const vramUsed = gpus.reduce((a, g) => a + (typeof g.used === "number" ? g.used : 0), 0);
+    t.vramCap.textContent = gpus.length
+        ? (vramUsedKnown ? `${human(vramUsed)} of ${human(vramTotal)} used` : "partially unreadable")
+        : "no GPU reported";
+    const gpuRows = gpus.length ? gpus.map((g) => {
+        const row = document.createElement("div");
+        row.className = "memxray-gpu-row";
+        if (gpus.length > 1) {
+            const label = document.createElement("span");
+            label.className = "memxray-gpu-label";
+            label.textContent = shortGpuName(g.name, g.index);
+            row.appendChild(label);
+        }
+        const track = document.createElement("div");
+        track.className = "memxray-tier-track";
+        if (typeof g.used === "number" && typeof g.free === "number") {
+            const total = Math.max(1, num(g.total) || g.used + g.free);
+            track.replaceChildren(...[
+                buildTierSeg("memxray-seg-comfy", g.used, total, "used"),
+                buildTierSeg("memxray-seg-free", g.free, total, "free"),
+            ].filter(Boolean));
+        } else {
+            track.replaceChildren(buildUnknownSeg());
+        }
+        row.appendChild(track);
+        return row;
+    }) : [emptyTrackNote("no GPU reported")];
+    t.vramTracks.replaceChildren(...gpuRows);
+
+    // System RAM lane: ComfyUI's own private working set against everything
+    // else in use against what is actually free (phys_avail).
+    const physTotal = Math.max(1, num(sys.phys_total));
+    const comfyRam = num(proc.private_ws);
+    const otherRam = Math.max(0, physTotal - num(sys.phys_avail) - comfyRam);
+    const freeRam = num(sys.phys_avail);
+    t.ramCap.textContent = `${human(physTotal - freeRam)} of ${human(physTotal)} used`;
+    t.ramTrack.replaceChildren(...[
+        buildTierSeg("memxray-seg-comfy", comfyRam, physTotal, "ComfyUI"),
+        buildTierSeg("memxray-seg-other", otherRam, physTotal, "other"),
+        buildTierSeg("memxray-seg-free", freeRam, physTotal, "free"),
+    ].filter(Boolean));
+
+    // Pagefile lane: same evicted_max ceiling used everywhere else in this
+    // panel, never a bigger number just because this view has more room.
+    const pfTotal = Math.max(1, num(sys.pagefile_size));
+    const pfUsed = num(sys.pagefile_used);
+    const pfSpill = Math.min(num(proc.evicted_max), pfUsed);
+    const pfOther = Math.max(0, pfUsed - pfSpill);
+    const pfFree = Math.max(0, pfTotal - pfUsed);
+    t.pfCap.textContent = `${human(pfUsed)} of ${human(pfTotal)} used`;
+    t.pfTrack.replaceChildren(...[
+        buildTierSeg("memxray-seg-spill", pfSpill, pfTotal, "ComfyUI spill"),
+        buildTierSeg("memxray-seg-other", pfOther, pfTotal, "other"),
+        buildTierSeg("memxray-seg-free", pfFree, pfTotal, "free"),
+    ].filter(Boolean));
+
+    // Flow rows between the lanes - text only, no rate where the backend
+    // gives us none to report.
+    const offloaded = num(models.offloaded_bytes);
+    setFlow(t.flow1, offloaded > 0
+        ? { text: `${human(offloaded)} parked in system RAM`, arrow: "down", tone: "" }
+        : null);
+
+    const pfDelta = num(sys.pagefile_delta);
+    const ioRead = num(proc.io_read_bytes_sec);
+    if (pfDelta > PAGEFILE_GROWTH_THRESHOLD) {
+        setFlow(t.flow2, { text: "evicting cached weights", rate: formatRate(pfDelta), arrow: "down", tone: "warn" });
+    } else if (ioRead > IO_READ_THRESHOLD) {
+        setFlow(t.flow2, { text: "reading from disk", rate: formatRate(ioRead), arrow: "right", tone: "load" });
+    } else {
+        setFlow(t.flow2, null);
+    }
+
+    t.foot.textContent = tiersFootText(proc);
+}
+
+function emptyTrackNote(text) {
+    const div = document.createElement("div");
+    div.className = "memxray-tier-track memxray-tier-empty";
+    div.textContent = text;
+    return div;
+}
+
+function setFlow(el, flow) {
+    el.replaceChildren();
+    el.className = "memxray-flow" + (flow ? ` is-${flow.tone || "idle"}` : " is-idle");
+    if (!flow) {
+        const idle = document.createElement("span");
+        idle.textContent = "idle";
+        idle.className = "memxray-flow-idle";
+        el.appendChild(idle);
+        return;
+    }
+    const arrow = document.createElement("span");
+    arrow.className = "memxray-flow-arrow";
+    arrow.textContent = flow.arrow === "down" ? "↓" : flow.arrow === "up" ? "↑" : "→";
+    const text = document.createElement("span");
+    text.textContent = flow.text + " ";
+    const rate = document.createElement("span");
+    rate.className = "memxray-flow-rate";
+    rate.textContent = flow.rate || "";
+    el.appendChild(arrow);
+    el.appendChild(text);
+    if (flow.rate) el.appendChild(rate);
+}
+
+// The one line the whole view is built to make honest: when evicted_max is
+// small next to the paged_out gap, most of that gap is address space
+// ComfyUI reserved and never touched - not memory Windows pushed to disk.
+// Getting this framing backwards is exactly the misreading Panel A used to
+// invite before evicted_max existed.
+function tiersFootText(proc) {
+    const gapV = num(proc.paged_out);
+    if (gapV <= 0) {
+        return "All of ComfyUI's private memory is resident. Nothing is committed-but-unused right now.";
+    }
+    const evicted = Math.min(num(proc.evicted_max), gapV);
+    const untouched = Math.max(0, gapV - evicted);
+    if (untouched > gapV / 2) {
+        return `${human(gapV)} is committed but not resident - mostly address space reserved and never touched, not memory Windows evicted.`;
+    }
+    return `Up to ${human(evicted)} of ComfyUI's memory may be sitting on the pagefile; the rest of the ${human(gapV)} gap is untouched commit.`;
+}
+
+// --- View B: Models -----------------------------------------------------------
+
+function updateModelsView(surf) {
+    const now = state._lastNow;
+    const proc = (now && now.proc) || {};
+    const models = (now && now.models) || {};
+    const modelList = Array.isArray(models.models) ? models.models : [];
+    const gpus = Array.isArray(models.gpus) ? models.gpus : [];
+    const m = surf.models;
+
+    if (!modelList.length) {
+        m.ledger.replaceChildren();
+        m.empty.style.display = "";
+        m.warn.style.display = "none";
+        return;
+    }
+    m.empty.style.display = "none";
+    m.ledger.replaceChildren(...modelList.map((model) => buildModelRow(model, gpus)));
+
+    // Per-model pagefile attribution would be a lie - the backend only knows
+    // process-wide eviction, not which model's bytes those were. So this is
+    // one panel-level line, not a per-row figure.
+    const evictedMax = num(proc.evicted_max);
+    const anyOffloaded = modelList.some((model) => num(model.offloaded) > 0);
+    if (evictedMax > MODEL_SPILL_WARN && anyOffloaded) {
+        m.warn.textContent =
+            `Up to ${human(evictedMax)} of ComfyUI's memory is on the pagefile - the parked weights above are what's at risk.`;
+        m.warn.style.display = "";
+    } else {
+        m.warn.style.display = "none";
+    }
+}
+
+function buildModelRow(model, gpus) {
+    const row = document.createElement("div");
+    row.className = "memxray-ledger-row";
+
+    const top = document.createElement("div");
+    top.className = "memxray-row-top";
+    const name = document.createElement("span");
+    name.className = "memxray-row-name";
+    name.textContent = (model && model.name) || "unnamed";
+    const size = document.createElement("span");
+    size.className = "memxray-row-size";
+    size.textContent = human(model && model.total);
+    top.appendChild(name);
+    top.appendChild(size);
+
+    const track = document.createElement("div");
+    track.className = "memxray-row-track";
+    const total = Math.max(1, num(model && model.total));
+    const onDevice = num(model && model.on_device);
+    const offloaded = num(model && model.offloaded);
+    track.replaceChildren(...[
+        buildTierSeg("memxray-seg-vram", onDevice, total, ""),
+        buildTierSeg("memxray-seg-ram", offloaded, total, ""),
+    ].filter(Boolean));
+
+    const chip = document.createElement("span");
+    chip.className = "memxray-chip";
+    const dot = document.createElement("span");
+    dot.className = "memxray-chip-dot";
+    const chipText = document.createElement("span");
+    if (offloaded > 0) {
+        dot.classList.add("memxray-chip-dot-ram");
+        chipText.textContent = `${human(offloaded)} parked in system RAM`;
+    } else {
+        dot.classList.add("memxray-chip-dot-vram");
+        chipText.textContent = `fully on ${gpuNameFor(model, gpus)}`;
+    }
+    chip.appendChild(dot);
+    chip.appendChild(chipText);
+
+    row.appendChild(top);
+    row.appendChild(track);
+    row.appendChild(chip);
+    return row;
+}
+
+// --- View C: Headroom ---------------------------------------------------------
+
+function updateHeadroomView(surf) {
+    const now = state._lastNow;
+    const sys = (now && now.sys) || {};
+    const proc = (now && now.proc) || {};
+    const h = surf.headroom;
+
+    const total = Math.max(1, num(sys.phys_total));
+    const avail = num(sys.phys_avail);
+    const comfy = num(proc.private_ws);
+    const other = Math.max(0, total - avail - comfy);
+    const critical = avail <= EVICT_LINE;
+
+    h.figure.textContent = (avail / GB).toFixed(1);
+    h.figure.dataset.state = critical ? "critical" : "";
+    h.figureLabel.textContent = "of RAM headroom";
+
+    const markPct = Math.min(99, Math.max(1, ((total - EVICT_LINE) / total) * 100));
+    h.mark.style.left = `${markPct}%`;
+    h.mark.classList.toggle("is-right", markPct > 60);
+
+    h.gaugeTrack.replaceChildren(h.mark, ...[
+        buildTierSeg("memxray-seg-comfy", comfy, total, "ComfyUI"),
+        buildTierSeg("memxray-seg-other", other, total, "other apps"),
+        buildTierSeg("memxray-seg-free", avail, total, "headroom"),
+    ].filter(Boolean));
+
+    const t = state.series.t;
+    const availSeries = state.series.phys_avail;
+    const start = windowStart(t, state.windowSeconds);
+    h.trendCap.textContent = `Headroom, last ${formatWindowStamp(state.windowSeconds)}`;
+    h.trend.textContent = headroomTrendWord(critical, availSeries, start);
+
+    const bars = [];
+    for (let i = start; i < availSeries.length; i++) {
+        const v = num(availSeries[i]);
+        const pct = Math.max(3, Math.min(100, (v / total) * 100));
+        const color = v <= EVICT_LINE ? COLORS.critical
+            : v <= EVICT_LINE * 3 ? COLORS.evicted : COLORS.residentLift;
+        const bar = document.createElement("div");
+        bar.style.height = `${pct}%`;
+        bar.style.background = color;
+        bar.title = `${human(v)} free`;
+        bars.push(bar);
+    }
+    h.strip.replaceChildren(...bars);
+    h.axisStart.textContent = `-${formatWindowStamp(state.windowSeconds)}`;
+
+    h.foot.textContent = headroomFootText(avail, critical, t, availSeries, start);
+}
+
+function headroomTrendWord(critical, series, start) {
+    if (critical) return "past the line";
+    if (series.length - start < 2) return "steady";
+    const first = num(series[start]);
+    const last = num(series[series.length - 1]);
+    const rel = Math.abs(last - first) / Math.max(1, first);
+    if (rel < 0.03) return "steady";
+    return last < first ? "falling" : "rising";
+}
+
+function headroomFootText(avail, critical, tArr, availSeries, start) {
+    if (critical) {
+        return `Only ${human(avail)} of headroom left - Windows is evicting to make room right now.`;
+    }
+    // Walk backward from "now" for the most recent point that was at or
+    // below the eviction line, so the sentence can say when it last turned.
+    let crossedAge = null;
+    const nowT = tArr[tArr.length - 1];
+    for (let i = tArr.length - 1; i >= start; i--) {
+        if (num(availSeries[i]) <= EVICT_LINE) {
+            crossedAge = nowT - tArr[i];
+            break;
+        }
+    }
+    if (crossedAge != null) {
+        return `${human(avail)} free now. Headroom crossed the eviction line about ${formatDuration(crossedAge)} ago.`;
+    }
+    return `${human(avail)} free - plenty of room, hasn't crossed the eviction line during this window.`;
 }
 
 // Maps a pointer x back to a sample index using the geometry of the last
@@ -756,16 +1181,33 @@ function updateTip(tip, wrap, hover) {
     tip.style.top = `${Math.max(4, y)}px`;
 }
 
+// Only the active view is recomputed per poll - the other three sit idle
+// with whatever they last showed. This matters most for Details: its canvas
+// has zero size while hidden behind another tab, so drawing it there would
+// be pure waste (and, if attempted, invisible garbage).
 function redrawAll() {
     for (const surf of state.surfaces.values()) {
         if (!state.visibleSurfaces.has(surf.id)) continue;
-        updateHeader(surf);
+        updateHeaderCommon(surf);
         try {
-            drawPanels(surf.canvas, surf.ctx);
+            redrawActiveView(surf);
         } catch (err) {
             // a drawing error must never propagate into ComfyUI's own loop
             console.error("[MemXray] draw failed", err);
         }
+    }
+}
+
+function redrawActiveView(surf) {
+    switch (surf.activeView) {
+        case "tiers": updateTiersView(surf); break;
+        case "models": updateModelsView(surf); break;
+        case "headroom": updateHeadroomView(surf); break;
+        case "details":
+        default:
+            updateDetailsTiles(surf);
+            drawPanels(surf.canvas, surf.ctx);
+            break;
     }
 }
 
@@ -971,6 +1413,192 @@ function injectStyle() {
 }
 .memxray-spacer { margin-left: auto; }
 
+/* --- view switcher -------------------------------------------------------
+   Same visual language as the controls buttons above; the mockup's
+   .scen[aria-checked="true"] ink/inverted treatment becomes
+   [aria-selected="true"] here since these are real ARIA tabs. */
+.memxray-switcher { display: flex; flex-wrap: wrap; gap: 6px; }
+.memxray-tab {
+    appearance: none;
+    margin: 0;
+    font: inherit;
+    font-family: var(--mx-label);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 6px 12px;
+    border: 1px solid var(--mx-line);
+    background: var(--mx-raised);
+    color: var(--mx-ink-2);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.memxray-tab:hover { color: var(--mx-ink); border-color: var(--mx-ink-3); }
+.memxray-tab:focus-visible { outline: 2px solid var(--mx-resident-lift); outline-offset: 1px; }
+.memxray-tab[aria-selected="true"] {
+    background: var(--mx-ink);
+    color: var(--mx-plate);
+    border-color: var(--mx-ink);
+}
+
+/* --- the four views: only one displayed at a time, the rest just set to
+   display:none inline via applyView() - never destroyed, so Details keeps
+   its canvas state (zoom/hover) across a tab switch. ---------------------- */
+.memxray-views { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.memxray-view { display: flex; flex-direction: column; gap: 12px; min-height: 0; flex: 1 1 auto; }
+.memxray-foot { margin: 0; font-size: 12.5px; color: var(--mx-ink-2); line-height: 1.45; }
+
+/* --- View A: Tiers -------------------------------------------------------- */
+.memxray-tier { display: flex; flex-direction: column; gap: 5px; }
+.memxray-cap {
+    font-family: var(--mx-label);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+}
+.memxray-cap i { font-style: normal; font-family: var(--mx-num); letter-spacing: 0; font-size: 11px; }
+.memxray-gpu-rows { display: flex; flex-direction: column; gap: 6px; }
+.memxray-gpu-row { display: flex; flex-direction: column; gap: 3px; }
+.memxray-gpu-label {
+    font-family: var(--mx-label);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+}
+.memxray-tier-track {
+    display: flex;
+    height: 30px;
+    gap: 2px;
+    background: var(--mx-plate);
+    border: 1px solid var(--mx-line);
+    border-radius: 3px;
+    padding: 3px;
+}
+.memxray-tier-empty {
+    align-items: center;
+    justify-content: center;
+    color: var(--mx-ink-3);
+    font-size: 10.5px;
+}
+.memxray-tier-seg {
+    border-radius: 2px;
+    min-width: 0;
+    display: grid;
+    place-items: center;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #071014;
+    padding: 0 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: flex-grow 300ms ease;
+}
+.memxray-seg-comfy { background: var(--mx-resident-lift); }
+.memxray-seg-spill { background: var(--mx-evicted); }
+.memxray-seg-other { background: #46525d; color: #0b1116; }
+.memxray-seg-free { background: var(--mx-plate); color: var(--mx-ink-3); border: 1px dashed var(--mx-line); }
+.memxray-seg-unknown { background: var(--mx-raised); color: var(--mx-ink-3); border: 1px dashed var(--mx-line); }
+.memxray-flow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding-left: 2px;
+    font-size: 11.5px;
+    min-height: 18px;
+    color: var(--mx-ink-3);
+}
+.memxray-flow .memxray-flow-idle { opacity: 0.7; }
+.memxray-flow.is-warn { color: var(--mx-evicted); }
+.memxray-flow.is-load { color: var(--mx-mapped); }
+.memxray-flow-rate { font-family: var(--mx-num); font-variant-numeric: tabular-nums; margin-left: 2px; }
+.memxray-flow-arrow { font-size: 12px; line-height: 1; }
+
+/* --- View B: Models --------------------------------------------------------- */
+.memxray-ledger { display: flex; flex-direction: column; gap: 11px; }
+.memxray-ledger-row { display: flex; flex-direction: column; }
+.memxray-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.memxray-row-name { font-size: 13.5px; font-weight: 600; color: var(--mx-ink); }
+.memxray-row-size { font-family: var(--mx-num); font-size: 11.5px; color: var(--mx-ink-3); }
+.memxray-row-track {
+    display: flex;
+    height: 9px;
+    gap: 2px;
+    margin-top: 5px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: var(--mx-plate);
+}
+.memxray-row-track .memxray-tier-seg { border-radius: 0; font-size: 0; padding: 0; }
+.memxray-seg-vram { background: var(--mx-resident-lift); }
+.memxray-seg-ram { background: var(--mx-mapped); }
+.memxray-chip { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; color: var(--mx-ink-2); }
+.memxray-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.memxray-chip-dot-vram { background: var(--mx-resident-lift); }
+.memxray-chip-dot-ram { background: var(--mx-mapped); }
+.memxray-ledger-keys { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 11.5px; color: var(--mx-ink-2); }
+.memxray-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+.memxray-swatch-vram { background: var(--mx-resident-lift); }
+.memxray-swatch-ram { background: var(--mx-mapped); }
+.memxray-ledger-empty { color: var(--mx-ink-3); }
+.memxray-ledger-warn { color: var(--mx-evicted); }
+
+/* --- View C: Headroom -------------------------------------------------------- */
+.memxray-gauge-figure { display: flex; align-items: baseline; gap: 9px; }
+.memxray-gauge-figure-num {
+    font-size: 30px;
+    font-weight: 300;
+    line-height: 1;
+    font-variant-numeric: proportional-nums;
+    color: var(--mx-ink);
+    font-family: var(--mx-num);
+}
+.memxray-gauge-figure-num[data-state="critical"] { color: var(--mx-critical); }
+.memxray-gauge-figure-label {
+    font-family: var(--mx-label);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+}
+.memxray-gauge {
+    position: relative;
+    height: 22px;
+    background: var(--mx-plate);
+    border: 1px solid var(--mx-line);
+    border-radius: 3px;
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+}
+.memxray-gauge-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--mx-critical); }
+.memxray-gauge-mark-label {
+    position: absolute;
+    left: 6px;
+    top: -1px;
+    font-family: var(--mx-label);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mx-critical);
+    white-space: nowrap;
+}
+.memxray-gauge-mark.is-right .memxray-gauge-mark-label { left: auto; right: 6px; }
+.memxray-hr-strip { display: flex; align-items: flex-end; gap: 1px; height: 46px; }
+.memxray-hr-strip div { flex: 1 1 0; min-width: 0; border-radius: 1px 1px 0 0; }
+.memxray-hr-strip-axis {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mx-num);
+    font-size: 9px;
+    color: var(--mx-ink-3);
+}
+
 .memxray-canvas-wrap { flex: 1 1 auto; min-height: 240px; position: relative; }
 .memxray-canvas-wrap canvas { width: 100%; height: 100%; display: block; border-radius: 3px; }
 .memxray-tip {
@@ -1062,7 +1690,7 @@ function injectStyle() {
 .memxray-toggle-btn:hover { color: #e4eaf0; border-color: #5f6d7a; }
 
 @media (prefers-reduced-motion: reduce) {
-    .memxray-seg { transition: none; }
+    .memxray-seg, .memxray-tier-seg { transition: none; }
 }
 `;
     document.head.appendChild(style);
@@ -1183,7 +1811,7 @@ function buildSurface(container) {
         pagefileTrend: makeReadout("trend"),
         hardReads: makeReadout("hard faults"),
     };
-    // kept so updateHeader can address them uniformly
+    // kept so updateHeaderCommon/updateDetailsTiles can address them uniformly
     tiles.inRam = { value: heroFigure, sub: heroAside, note: heroAside };
     tiles.pagedOut = { value: keys.untouched.value, sub: heroAside, note: heroAside };
     tiles.evictedMax = { value: keys.evicted.value, sub: heroAside };
@@ -1250,6 +1878,194 @@ function buildSurface(container) {
     controls.appendChild(clearBtn);
     controls.appendChild(windowSelect);
 
+    // --- view switcher --------------------------------------------------
+    // Same visual language as the controls row above (Bahnschrift, uppercase,
+    // letterspaced), mirroring the mockup's .scen buttons: a role="tablist"
+    // with arrow-key navigation and the selected tab getting the inverted
+    // ink treatment via CSS [aria-selected="true"].
+    const switcher = document.createElement("div");
+    switcher.className = "memxray-switcher";
+    switcher.setAttribute("role", "tablist");
+    switcher.setAttribute("aria-label", "View");
+    const VIEW_DEFS = [
+        ["tiers", "Tiers"],
+        ["models", "Models"],
+        ["headroom", "Headroom"],
+        ["details", "Details"],
+    ];
+    const tabButtons = VIEW_DEFS.map(([key, label]) => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "memxray-tab";
+        btn.setAttribute("role", "tab");
+        btn.dataset.view = key;
+        btn.textContent = label;
+        btn.setAttribute("aria-selected", String(key === state.activeView));
+        btn.tabIndex = key === state.activeView ? 0 : -1;
+        switcher.appendChild(btn);
+        return btn;
+    });
+    tabButtons.forEach((btn, i) => {
+        btn.addEventListener("click", () => setActiveView(btn.dataset.view));
+        btn.addEventListener("keydown", (e) => {
+            const dir = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1
+                : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;
+            if (!dir) return;
+            e.preventDefault();
+            const next = tabButtons[(i + dir + tabButtons.length) % tabButtons.length];
+            next.focus();
+            setActiveView(next.dataset.view);
+        });
+    });
+
+    // --- View A: Tiers ----------------------------------------------------
+    // Three lanes (VRAM / System RAM / Pagefile), each a caption row plus a
+    // segmented track, with the flow rows between them carrying whatever is
+    // actually moving right now.
+    const viewTiers = document.createElement("div");
+    viewTiers.className = "memxray-view memxray-view-tiers";
+    viewTiers.setAttribute("role", "tabpanel");
+
+    function makeLane(name) {
+        const lane = document.createElement("div");
+        lane.className = "memxray-tier";
+        const cap = document.createElement("div");
+        cap.className = "memxray-cap";
+        const capName = document.createElement("span");
+        capName.textContent = name;
+        const capValue = document.createElement("i");
+        cap.appendChild(capName);
+        cap.appendChild(capValue);
+        lane.appendChild(cap);
+        return { lane, capValue };
+    }
+
+    const vramLane = makeLane("VRAM");
+    const vramTracks = document.createElement("div");
+    vramTracks.className = "memxray-gpu-rows";
+    vramLane.lane.appendChild(vramTracks);
+
+    const flow1 = document.createElement("div");
+    flow1.className = "memxray-flow is-idle";
+
+    const ramLane = makeLane("System RAM");
+    const ramTrack = document.createElement("div");
+    ramTrack.className = "memxray-tier-track";
+    ramLane.lane.appendChild(ramTrack);
+
+    const flow2 = document.createElement("div");
+    flow2.className = "memxray-flow is-idle";
+
+    const pfLane = makeLane("Pagefile");
+    const pfTrack = document.createElement("div");
+    pfTrack.className = "memxray-tier-track";
+    pfLane.lane.appendChild(pfTrack);
+
+    const tiersFoot = document.createElement("p");
+    tiersFoot.className = "memxray-foot";
+
+    viewTiers.appendChild(vramLane.lane);
+    viewTiers.appendChild(flow1);
+    viewTiers.appendChild(ramLane.lane);
+    viewTiers.appendChild(flow2);
+    viewTiers.appendChild(pfLane.lane);
+    viewTiers.appendChild(tiersFoot);
+
+    // --- View B: Models -----------------------------------------------------
+    // One row per loaded model - the unit ComfyUI users already think in,
+    // instead of raw byte totals.
+    const viewModels = document.createElement("div");
+    viewModels.className = "memxray-view memxray-view-models";
+    viewModels.setAttribute("role", "tabpanel");
+
+    const ledger = document.createElement("div");
+    ledger.className = "memxray-ledger";
+
+    const ledgerKeys = document.createElement("div");
+    ledgerKeys.className = "memxray-ledger-keys";
+    for (const [cls, label] of [["memxray-swatch-vram", "VRAM"], ["memxray-swatch-ram", "RAM"]]) {
+        const item = document.createElement("span");
+        item.className = "memxray-key";
+        const sw = document.createElement("span");
+        sw.className = `memxray-swatch ${cls}`;
+        item.appendChild(sw);
+        item.appendChild(document.createTextNode(label));
+        ledgerKeys.appendChild(item);
+    }
+
+    const modelsEmpty = document.createElement("p");
+    modelsEmpty.className = "memxray-foot memxray-ledger-empty";
+    modelsEmpty.textContent = "No models loaded. Queue a workflow and they'll appear here.";
+    modelsEmpty.style.display = "none";
+
+    const modelsWarn = document.createElement("p");
+    modelsWarn.className = "memxray-foot memxray-ledger-warn";
+    modelsWarn.style.display = "none";
+
+    viewModels.appendChild(ledger);
+    viewModels.appendChild(ledgerKeys);
+    viewModels.appendChild(modelsEmpty);
+    viewModels.appendChild(modelsWarn);
+
+    // --- View C: Headroom -----------------------------------------------
+    // One predictive number: how much RAM is left before Windows starts
+    // making room, and whether it has already crossed that line.
+    const viewHeadroom = document.createElement("div");
+    viewHeadroom.className = "memxray-view memxray-view-headroom";
+    viewHeadroom.setAttribute("role", "tabpanel");
+
+    const hrFigureRow = document.createElement("div");
+    hrFigureRow.className = "memxray-gauge-figure";
+    const hrFigure = document.createElement("b");
+    hrFigure.className = "memxray-gauge-figure-num";
+    hrFigure.textContent = "--";
+    const hrFigureLabel = document.createElement("span");
+    hrFigureLabel.className = "memxray-gauge-figure-label";
+    hrFigureRow.appendChild(hrFigure);
+    hrFigureRow.appendChild(hrFigureLabel);
+
+    const hrGauge = document.createElement("div");
+    hrGauge.className = "memxray-gauge";
+    const hrMark = document.createElement("div");
+    hrMark.className = "memxray-gauge-mark";
+    const hrMarkLabel = document.createElement("span");
+    hrMarkLabel.className = "memxray-gauge-mark-label";
+    hrMarkLabel.textContent = "evicting";
+    hrMark.appendChild(hrMarkLabel);
+    hrGauge.appendChild(hrMark);
+
+    const hrCap = document.createElement("div");
+    hrCap.className = "memxray-cap";
+    const hrCapName = document.createElement("span");
+    const hrTrend = document.createElement("i");
+    hrCap.appendChild(hrCapName);
+    hrCap.appendChild(hrTrend);
+
+    const hrStripWrap = document.createElement("div");
+    hrStripWrap.className = "memxray-hr-strip";
+    const hrAxis = document.createElement("div");
+    hrAxis.className = "memxray-hr-strip-axis";
+    const hrAxisStart = document.createElement("span");
+    const hrAxisEnd = document.createElement("span");
+    hrAxisEnd.textContent = "now";
+    hrAxis.appendChild(hrAxisStart);
+    hrAxis.appendChild(hrAxisEnd);
+
+    const hrFoot = document.createElement("p");
+    hrFoot.className = "memxray-foot";
+
+    viewHeadroom.appendChild(hrFigureRow);
+    viewHeadroom.appendChild(hrGauge);
+    viewHeadroom.appendChild(hrCap);
+    viewHeadroom.appendChild(hrStripWrap);
+    viewHeadroom.appendChild(hrAxis);
+    viewHeadroom.appendChild(hrFoot);
+
+    // --- View D: Details (the pre-existing expert panel, unchanged) --------
+    const viewDetails = document.createElement("div");
+    viewDetails.className = "memxray-view memxray-view-details";
+    viewDetails.setAttribute("role", "tabpanel");
+
     const canvasWrap = document.createElement("div");
     canvasWrap.className = "memxray-canvas-wrap";
     const canvas = document.createElement("canvas");
@@ -1285,19 +2101,32 @@ function buildSurface(container) {
         }
     });
 
+    viewDetails.appendChild(readouts);
+    viewDetails.appendChild(modelsLine);
+    viewDetails.appendChild(canvasWrap);
+
+    const viewsWrap = document.createElement("div");
+    viewsWrap.className = "memxray-views";
+    viewsWrap.appendChild(viewTiers);
+    viewsWrap.appendChild(viewModels);
+    viewsWrap.appendChild(viewHeadroom);
+    viewsWrap.appendChild(viewDetails);
+
     root.appendChild(verdictRow);
     root.appendChild(hero);
     root.appendChild(strip);
-    root.appendChild(readouts);
-    root.appendChild(modelsLine);
     root.appendChild(caveat);
     root.appendChild(controls);
-    root.appendChild(canvasWrap);
+    root.appendChild(switcher);
+    root.appendChild(viewsWrap);
     container.appendChild(root);
 
-    // redraw when the surface itself changes size (e.g. floating panel resize)
+    // redraw when the surface itself changes size (e.g. floating panel resize).
+    // Guarded to Details only: the other three views are plain flow layout
+    // with nothing to redraw, and the canvas has zero size while hidden
+    // behind another tab anyway.
     const resizeObserver = new ResizeObserver(() => {
-        if (state.visibleSurfaces.has(id)) {
+        if (state.visibleSurfaces.has(id) && surf.activeView === "details") {
             try {
                 drawPanels(canvas, ctx);
             } catch (err) {
@@ -1307,6 +2136,32 @@ function buildSurface(container) {
     });
     resizeObserver.observe(canvasWrap);
 
+    const views = { tiers: viewTiers, models: viewModels, headroom: viewHeadroom, details: viewDetails };
+
+    // Shows the chosen view's DOM and hides the rest without touching any of
+    // them - the Details canvas in particular must survive a tab switch with
+    // its zoom/hover state intact, not get torn down and rebuilt.
+    function applyView(view) {
+        surf.activeView = view;
+        for (const [key, el] of Object.entries(views)) {
+            el.style.display = key === view ? "" : "none";
+        }
+        for (const btn of tabButtons) {
+            const on = btn.dataset.view === view;
+            btn.setAttribute("aria-selected", String(on));
+            btn.tabIndex = on ? 0 : -1;
+        }
+        // Recompute right away rather than waiting for the next 1s poll tick,
+        // so switching tabs never shows a stale "--" or last view's numbers.
+        if (state.visibleSurfaces.has(id)) {
+            try {
+                redrawActiveView(surf);
+            } catch (err) {
+                console.error("[MemXray] view switch redraw failed", err);
+            }
+        }
+    }
+
     const surf = {
         id, root, canvas, ctx,
         verdictDot: dot, verdictText, verdictRow, verdictHead,
@@ -1314,8 +2169,25 @@ function buildSurface(container) {
         segs, keys, tip,
         tiles, modelsLine, caveat,
         resizeObserver,
+        activeView: state.activeView,
+        applyView,
+        tiers: {
+            vramCap: vramLane.capValue, vramTracks,
+            ramCap: ramLane.capValue, ramTrack,
+            pfCap: pfLane.capValue, pfTrack,
+            flow1, flow2, foot: tiersFoot,
+        },
+        models: { ledger, empty: modelsEmpty, warn: modelsWarn },
+        headroom: {
+            figure: hrFigure, figureLabel: hrFigureLabel,
+            mark: hrMark, gaugeTrack: hrGauge,
+            trendCap: hrCapName, trend: hrTrend,
+            strip: hrStripWrap, axisStart: hrAxisStart,
+            foot: hrFoot,
+        },
     };
     state.surfaces.set(id, surf);
+    applyView(state.activeView); // sync this new surface to whatever is already selected elsewhere
     return surf;
 }
 
@@ -1372,10 +2244,13 @@ function createFloatingPanel() {
 
     function persist() {
         const rect = panel.getBoundingClientRect();
-        savePanelPrefs({
-            visible: panel.classList.contains("memxray-visible"),
-            x: rect.left, y: rect.top, w: rect.width, h: rect.height,
-        });
+        // Merge onto the existing blob rather than replacing it - this same
+        // key also carries the active-view choice (see setActiveView), and a
+        // bare overwrite here would silently wipe that on the next drag/resize.
+        const prefs = loadPanelPrefs();
+        prefs.visible = panel.classList.contains("memxray-visible");
+        prefs.x = rect.left; prefs.y = rect.top; prefs.w = rect.width; prefs.h = rect.height;
+        savePanelPrefs(prefs);
     }
 
     function show() {

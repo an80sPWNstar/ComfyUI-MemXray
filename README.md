@@ -11,7 +11,7 @@ swapping? Maybe?
 This pack samples ComfyUI's own process once a second and draws the graph that
 answers it directly, with a plain-language verdict at the top.
 
-![The Mem X-Ray panel](docs/panel.png)
+![The Mem X-Ray panel, Tiers view](docs/panel.png)
 
 That screenshot is a real reading, and the strip under the headline is the
 whole story: how much ComfyUI holds, and how much of it is actually in RAM.
@@ -43,13 +43,45 @@ Restart ComfyUI. No pip install step — the only dependency is `psutil`, which
 ComfyUI already ships. Windows only (see [Caveats](#caveats)).
 
 Press **Alt+M** for the floating panel, or open the **Mem X-Ray** sidebar tab.
+The panel is draggable and resizable, and remembers where you left it and which
+view you were on.
 
 ---
 
-## Reading the graph
+## Four views
 
-The panel is three stacked graphs sharing one time axis, plus stat tiles and a
-one-line verdict.
+A verdict, a headline figure and the density strip stay pinned at the top. Below
+them, four tabs — because "how am I doing?" is really four different questions:
+
+**Tiers** — your weights across VRAM, system RAM and the pagefile, as three
+lanes, with arrows for what's moving between them. Most people already picture
+weights moving between VRAM and RAM; this is the view that shows the third lane
+underneath, and that Windows moves things into it without asking.
+
+**Models** — per checkpoint rather than per byte: name, size, and how much of it
+is on the card versus parked in system RAM. The unit you already think in, and
+the view that tells you which model to unload.
+
+**Headroom** — how much RAM is left before Windows starts evicting, with the
+eviction line marked and a strip showing when you crossed it. The only
+predictive view: it tells you not to start the 20 GB render *before* you start
+it.
+
+![The Headroom view](docs/headroom.png)
+
+**Details** — the original instrument panel, for when you want the raw counters.
+Described below.
+
+Per-model *pagefile* figures are deliberately absent. Windows reports eviction
+per process, not per allocation, so attributing it to one checkpoint would be a
+guess. When eviction is happening, the Models view says how much of the process
+is affected and marks the parked weights as what's at risk.
+
+---
+
+## Reading the Details graphs
+
+Three stacked graphs sharing one time axis.
 
 **Top graph — ComfyUI's private memory.** The solid cyan block is memory
 genuinely resident in RAM — bright means present. Above it, a **dashed amber

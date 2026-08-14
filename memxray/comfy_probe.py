@@ -48,9 +48,18 @@ def loaded_models() -> list[dict]:
             _safe(lambda: type(model).__name__, "model"),
         )
 
+        # "cuda:1" -> 1, so the ledger can group models under the right card.
+        dev_index = None
+        if ":" in cur_dev:
+            try:
+                dev_index = int(cur_dev.rsplit(":", 1)[1])
+            except ValueError:
+                dev_index = None
+
         out.append(
             {
                 "name": name,
+                "device_index": dev_index,
                 "total": total,
                 # weights sitting on the compute device (VRAM, normally)
                 "on_device": on_device,

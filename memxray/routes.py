@@ -21,6 +21,10 @@ log = logging.getLogger("MemXray")
 HISTORY_COLUMNS = [
     ("t", lambda s: round(s["t"], 2)),
     ("phys_total", lambda s: s["sys"]["phys_total"]),
+    # headroom: what is still available before Windows starts reclaiming.
+    # Available Bytes already counts the standby cache as reclaimable, which is
+    # what "free RAM" means in practice.
+    ("phys_avail", lambda s: int(s["sys"].get("phys_avail", 0))),
     ("in_use", lambda s: int(s["sys"]["in_use"])),
     ("standby", lambda s: int(s["sys"]["standby"])),
     ("modified", lambda s: int(s["sys"]["modified"])),
