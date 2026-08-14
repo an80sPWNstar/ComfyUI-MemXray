@@ -10,30 +10,60 @@ import { api } from "../../../scripts/api.js";
 
 const STORE_KEY = "memxray.panel";
 const MAX_POINTS = 900; // matches backend history_seconds (900s @ 1Hz)
+// ---- design tokens ---------------------------------------------------------
+// The panel is an x-ray plate: bright means dense means present in RAM, dark
+// means absence, and color appears only where something is actually wrong.
+// The previous version filled the whole chart with red whenever memory was
+// merely non-resident, which screamed "problem" while the verdict said "fine".
+//
+// Series hues (resident / mapped) and the warning hue were validated together
+// with the dataviz palette validator on this surface: all pairs pass the
+// lightness band, chroma floor, CVD separation and contrast checks in both
+// light and dark mode. Do not nudge these by eye - re-run the validator.
 const COLORS = {
-    privateWs: "#46be78",
-    privateBytes: "#e2544a",
-    pagedBand: "rgba(226, 84, 74, 0.28)",
-    // evicted_max sub-band: the portion of the paged-out gap that could
-    // actually be on disk (bounded by system pagefile_used), drawn solid
-    // and darker so it reads as "the real part" against the lighter,
-    // merely-committed-but-untouched remainder above it.
-    evictedBand: "rgba(122, 32, 27, 0.85)",
-    workingSet: "#569ae8",
-    inUse: "#6084c8",
-    modified: "#e2544a",
-    standby: "#6c7696",
-    free: "#3a3e4c",
-    hardReads: "#f0b042",
-    hardReadsPagefile: "#e2544a", // bar color when the sample's pagefile actually grew
-    marker: "#c882f0",
+    plate: "#0d1014",      // chart ground
+    surface: "#12161b",    // panel ground
+    raised: "#19202a",     // controls, strip track
+    line: "#232b34",       // hairlines
+    ink: "#e4eaf0",
+    ink2: "#93a1af",
+    ink3: "#5f6d7a",
+
+    resident: "#2b9cbb",       // series 1 - private memory in RAM
+    residentLift: "#4fc3e8",   // same hue, lighter step, for the edge line
+    residentFill: "rgba(43, 156, 187, 0.22)",
+    mapped: "#8073e6",         // series 2 - file-backed / mmap'd pages
+    evicted: "#bd811e",        // status: warning - could be on disk
+    // Deliberately faint: this band is an upper bound (capped by the
+    // system-wide pagefile), not a measurement of ComfyUI's own eviction. A
+    // saturated slab here reads as "2 GB swapped!" when the honest claim is
+    // "at most 2 GB, most of it probably another process".
+    evictedFill: "rgba(189, 129, 30, 0.15)",
+    critical: "#e2564a",       // status: critical - reserved, never a series
+    voidFill: "rgba(99, 112, 126, 0.07)", // untouched commit: absence, not a category
+    voidEdge: "#39424d",
+
+    // system RAM composition: one hue ramp (occupied -> free), not a rainbow
+    inUse: "#2b6f86",
+    modified: "#bd811e",
+    standby: "#39454f",
+    free: "#171e25",   // just off the plate: free RAM is absence, but must
+                       // still be tellable from the panel ground
+
+    marker: "#8073e6",
     verdict: {
-        ok: "#46be78",
-        mapped: "#569ae8",
-        warn: "#f0b042",
-        alarm: "#e2544a",
+        ok: "#4fc3e8",
+        mapped: "#8073e6",
+        warn: "#bd811e",
+        alarm: "#e2564a",
     },
 };
+
+// Windows-only pack, so Windows faces are fair game: Bahnschrift is the
+// DIN-derived condensed grotesque that ships with Win10+, which gives the
+// readout an instrument-panel voice without loading a webfont.
+const FONT_LABEL = 'Bahnschrift, "Segoe UI Variable Small", "Segoe UI", sans-serif';
+const FONT_NUM = 'Consolas, "Cascadia Mono", ui-monospace, monospace';
 
 // ---- small formatting helpers -------------------------------------------
 
@@ -200,6 +230,16 @@ function onSurfaceHidden(id) {
 // ---- canvas drawing ---------------------------------------------------------
 // Three stacked panels sharing one x axis, oldest sample on the left.
 
+const PAGEFILE_GROWTH_THRESHOLD = 1024 * 1024; // 1 MB/s, "the pagefile is growing"
+const PAD_L = 10;
+const PAD_R = 10;
+const TITLE_BAND = 22;   // room for the title + legend, so text never sits on data
+const AXIS_BAND = 16;    // time axis under the last panel
+
+// The geometry of the last render, kept so pointer events can map an x back to
+// a sample index without recomputing the layout.
+let lastGeo = null;
+
 function drawPanels(canvas, ctx) {
     const dpr = window.devicePixelRatio || 1;
     const cssW = canvas.clientWidth || 400;
@@ -210,230 +250,361 @@ function drawPanels(canvas, ctx) {
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, cssW, cssH);
-    ctx.fillStyle = "#20232b";
+    ctx.fillStyle = COLORS.plate;
     ctx.fillRect(0, 0, cssW, cssH);
 
     const t = state.series.t;
     const n = t.length;
     if (n < 2) {
-        ctx.fillStyle = "#888";
-        ctx.font = "12px sans-serif";
-        ctx.fillText("waiting for samples...", 10, cssH / 2);
+        ctx.fillStyle = COLORS.ink3;
+        ctx.font = `11px ${FONT_LABEL}`;
+        ctx.fillText("ACQUIRING", PAD_L, cssH / 2);
+        lastGeo = null;
         return;
     }
 
-    // window slice: only draw the trailing windowSeconds worth of samples
     const tMax = t[n - 1];
     const tMin = tMax - state.windowSeconds;
     let start = 0;
     while (start < n - 1 && t[start] < tMin) start++;
-    const count = n - start;
-    const xAt = (i) => ((t[i] - tMin) / Math.max(1, state.windowSeconds)) * cssW;
 
-    const gap = 6;
-    const hA = Math.round(cssH * 0.42);
-    const hB = Math.round(cssH * 0.32);
-    const hC = cssH - hA - hB - gap * 2;
-    const yA0 = 0, yA1 = hA;
-    const yB0 = hA + gap, yB1 = yB0 + hB;
-    const yC0 = yB1 + gap, yC1 = yC0 + hC;
+    const x0 = PAD_L;
+    const x1 = cssW - PAD_R;
+    const plotW = Math.max(10, x1 - x0);
+    const xAt = (i) => x0 + ((t[i] - tMin) / Math.max(1, state.windowSeconds)) * plotW;
 
-    drawPanelA(ctx, cssW, yA0, yA1, start, n, xAt);
-    drawPanelB(ctx, cssW, yB0, yB1, start, n, xAt);
-    drawPanelC(ctx, cssW, yC0, yC1, start, n, xAt);
-    drawMarkers(ctx, cssW, 0, cssH, tMin, tMax);
+    const gap = 12;
+    const usable = cssH - gap * 2 - AXIS_BAND;
+    // Panel A carries the actual question, so it gets the space; system RAM is
+    // context and stays a thin ribbon.
+    const hA = Math.round(usable * 0.50);
+    const hB = Math.round(usable * 0.20);
+    const hC = usable - hA - hB;
+    const panels = [
+        { y0: 0, y1: hA },
+        { y0: hA + gap, y1: hA + gap + hB },
+        { y0: hA + hB + gap * 2, y1: hA + hB + gap * 2 + hC },
+    ];
 
-    // panel separators
-    ctx.strokeStyle = "#3a3e4c";
+    lastGeo = { x0, x1, plotW, tMin, tMax, start, n, panels, cssW, cssH };
+
+    drawPanelA(ctx, x0, x1, panels[0], start, n, xAt);
+    drawPanelB(ctx, x0, x1, panels[1], start, n, xAt);
+    drawPanelC(ctx, x0, x1, panels[2], start, n, xAt);
+    drawTimeAxis(ctx, x0, x1, panels[2].y1, cssH);
+    drawMarkers(ctx, panels, tMin, tMax, x0, plotW);
+    drawCrosshair(ctx, panels, xAt, start, n);
+}
+
+// Title band: label left, legend right. Both live ABOVE the plot rect, which
+// is the whole point - the old version drew them over the data.
+function panelHeader(ctx, x0, x1, yTop, title, legend) {
+    ctx.font = `10px ${FONT_LABEL}`;
+    ctx.textBaseline = "middle";
+    const midY = yTop + TITLE_BAND / 2;
+
+    ctx.fillStyle = COLORS.ink2;
+    ctx.letterSpacing = "0.08em";
+    ctx.fillText(title.toUpperCase(), x0, midY);
+    const titleW = ctx.measureText(title.toUpperCase()).width;
+    ctx.letterSpacing = "0px";
+
+    if (!legend || !legend.length) return;
+    ctx.font = `10px ${FONT_LABEL}`;
+    const items = legend.map((it) => ({ ...it, w: ctx.measureText(it.label).width + 16 }));
+    // If the legend cannot fit beside the title, drop the least important
+    // entries rather than overlapping or clipping mid-word.
+    let shown = items;
+    while (shown.length > 1 && totalWidth(shown) > x1 - x0 - titleW - 14) shown = shown.slice(0, -1);
+    if (totalWidth(shown) > x1 - x0 - titleW - 14) return;
+
+    let x = x1 - totalWidth(shown);
+    for (const it of shown) {
+        ctx.fillStyle = it.color;
+        if (it.line) {
+            ctx.fillRect(x, midY - 1, 9, 2);
+        } else {
+            roundRect(ctx, x, midY - 4, 9, 8, 2);
+            ctx.fill();
+        }
+        ctx.fillStyle = COLORS.ink3;
+        ctx.fillText(it.label, x + 13, midY);
+        x += it.w;
+    }
+}
+
+function totalWidth(items) {
+    return items.reduce((a, it) => a + it.w, 0);
+}
+
+function roundRect(ctx, x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(0, yB0 - gap / 2); ctx.lineTo(cssW, yB0 - gap / 2);
-    ctx.moveTo(0, yC0 - gap / 2); ctx.lineTo(cssW, yC0 - gap / 2);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+}
+
+// Hairline grid, one shade off the surface - never dashed.
+function plotGrid(ctx, x0, x1, py0, py1) {
+    ctx.strokeStyle = COLORS.line;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const f of [0.5, 1]) {
+        const y = Math.round(py1 - (py1 - py0) * f) + 0.5;
+        ctx.moveTo(x0, y);
+        ctx.lineTo(x1, y);
+    }
+    ctx.moveTo(x0, Math.round(py1) + 0.5);
+    ctx.lineTo(x1, Math.round(py1) + 0.5);
     ctx.stroke();
 }
 
-// Wraps rather than running off the edge: the panel is user-resizable and the
-// legends are long, so at the 560px default width they were being clipped
-// mid-word ("...cause unpr").
-function panelLabel(ctx, text, x, y, maxWidth) {
-    ctx.fillStyle = "#9aa0ad";
-    ctx.font = "11px sans-serif";
-    if (!maxWidth || ctx.measureText(text).width <= maxWidth) {
-        ctx.fillText(text, x, y);
-        return y;
-    }
-    // legends separate their clauses with runs of spaces; break on those
-    const parts = text.split(/\s{2,}/);
-    let line = "";
-    let ly = y;
-    for (const part of parts) {
-        const candidate = line ? `${line}   ${part}` : part;
-        if (line && ctx.measureText(candidate).width > maxWidth) {
-            ctx.fillText(line, x, ly);
-            ly += 12;
-            line = part;
-        } else {
-            line = candidate;
-        }
-    }
-    if (line) ctx.fillText(line, x, ly);
-    return ly;
+// Scale readout, right-aligned on its own plate so it never sits on a mark.
+function scaleTag(ctx, x1, py0, text) {
+    ctx.font = `9px ${FONT_NUM}`;
+    ctx.textBaseline = "middle";
+    const w = ctx.measureText(text).width;
+    ctx.fillStyle = COLORS.plate;
+    ctx.fillRect(x1 - w - 6, py0 + 1, w + 6, 12);
+    ctx.fillStyle = COLORS.ink3;
+    ctx.fillText(text, x1 - w - 2, py0 + 7);
 }
 
-function drawPanelA(ctx, w, y0, y1, start, n, xAt) {
-    const h = y1 - y0;
+function drawPanelA(ctx, x0, x1, panel, start, n, xAt) {
     const s = state.series;
-    // scale off the larger of private_bytes and the combined working set,
-    // since either line can be the tallest depending on load state
+    const py0 = panel.y0 + TITLE_BAND;
+    const py1 = panel.y1;
+
     let maxV = 1;
     for (let i = start; i < n; i++) {
         maxV = Math.max(maxV, s.private_bytes[i], s.private_ws[i] + s.mapped_ws[i]);
     }
     maxV = niceCeil(maxV);
-    const yOf = (v) => y1 - (v / maxV) * (h - 16);
+    const yOf = (v) => py1 - (num(v) / maxV) * (py1 - py0);
 
-    // the band between private_bytes (committed) and private_ws (resident)
-    // IS the paged-out memory - this is the headline of the whole tool, so
-    // it gets filled first, underneath everything else.
+    panelHeader(ctx, x0, x1, panel.y0, "Process memory", [
+        { label: "in RAM", color: COLORS.resident },
+        { label: "evicted ≤", color: COLORS.evicted },
+        { label: "untouched", color: COLORS.voidEdge },
+        { label: "mapped", color: COLORS.mapped, line: true },
+    ]);
+    plotGrid(ctx, x0, x1, py0, py1);
+
+    const evictedTop = (i) => {
+        const gapV = Math.max(0, s.private_bytes[i] - s.private_ws[i]);
+        return num(s.private_ws[i]) + Math.min(num(s.evicted_max[i]), gapV);
+    };
+
+    // Absence is drawn as absence: the untouched-commit band is a faint void,
+    // not a red alarm. Only the evicted slice - memory that could genuinely be
+    // on disk - earns the warning hue.
+    fillBand(ctx, start, n, xAt, (i) => yOf(evictedTop(i)), (i) => yOf(s.private_bytes[i]), COLORS.voidFill);
+    fillBand(ctx, start, n, xAt, (i) => yOf(s.private_ws[i]), (i) => yOf(evictedTop(i)), COLORS.evictedFill);
+
+    // resident area - the dense part of the plate
     ctx.beginPath();
-    ctx.moveTo(xAt(start), yOf(s.private_ws[start]));
+    ctx.moveTo(xAt(start), py1);
     for (let i = start; i < n; i++) ctx.lineTo(xAt(i), yOf(s.private_ws[i]));
-    for (let i = n - 1; i >= start; i--) ctx.lineTo(xAt(i), yOf(s.private_bytes[i]));
+    ctx.lineTo(xAt(n - 1), py1);
     ctx.closePath();
-    ctx.fillStyle = COLORS.pagedBand;
+    ctx.fillStyle = COLORS.residentFill;
     ctx.fill();
 
-    // sub-band at the bottom of the gap: evicted_max is min(paged_out,
-    // system pagefile_used) - the part of the gap that could actually be
-    // on disk. Drawn solid/darker so it reads as "the real part"; the
-    // lighter band above it (already filled) is committed address space
-    // the process never touched, which is NOT proof of pagefile use.
-    ctx.beginPath();
-    ctx.moveTo(xAt(start), yOf(s.private_ws[start]));
-    for (let i = start; i < n; i++) ctx.lineTo(xAt(i), yOf(s.private_ws[i]));
-    for (let i = n - 1; i >= start; i--) {
-        const evicted = Math.min(num(s.evicted_max[i]), Math.max(0, s.private_bytes[i] - s.private_ws[i]));
-        ctx.lineTo(xAt(i), yOf(s.private_ws[i] + evicted));
-    }
-    ctx.closePath();
-    ctx.fillStyle = COLORS.evictedBand;
-    ctx.fill();
+    strokeSeries(ctx, start, n, xAt, (i) => yOf(s.private_bytes[i]), COLORS.voidEdge, 1);
+    // Dashed, because this edge is a ceiling rather than a measured value -
+    // the dash is the uncertainty, and it keeps the warning hue to a hairline
+    // instead of a slab.
+    ctx.setLineDash([3, 3]);
+    strokeSeries(ctx, start, n, xAt, (i) => yOf(evictedTop(i)), COLORS.evicted, 1.5);
+    ctx.setLineDash([]);
+    strokeSeries(ctx, start, n, xAt, (i) => yOf(s.private_ws[i] + s.mapped_ws[i]), COLORS.mapped, 1.5);
+    strokeSeries(ctx, start, n, xAt, (i) => yOf(s.private_ws[i]), COLORS.residentLift, 2);
 
-    // private_ws filled area (resident, "actually in RAM")
-    ctx.beginPath();
-    ctx.moveTo(xAt(start), y1);
-    for (let i = start; i < n; i++) ctx.lineTo(xAt(i), yOf(s.private_ws[i]));
-    ctx.lineTo(xAt(n - 1), y1);
-    ctx.closePath();
-    ctx.fillStyle = "rgba(70, 190, 120, 0.25)";
-    ctx.fill();
-
-    // total working set incl. mapped files (thin blue line)
-    ctx.beginPath();
-    for (let i = start; i < n; i++) {
-        const v = s.private_ws[i] + s.mapped_ws[i];
-        i === start ? ctx.moveTo(xAt(i), yOf(v)) : ctx.lineTo(xAt(i), yOf(v));
-    }
-    ctx.strokeStyle = COLORS.workingSet;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
-    // private_bytes line (committed)
-    ctx.beginPath();
-    for (let i = start; i < n; i++) {
-        i === start ? ctx.moveTo(xAt(i), yOf(s.private_bytes[i])) : ctx.lineTo(xAt(i), yOf(s.private_bytes[i]));
-    }
-    ctx.strokeStyle = COLORS.privateBytes;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    // private_ws line on top for a crisp edge
-    ctx.beginPath();
-    for (let i = start; i < n; i++) {
-        i === start ? ctx.moveTo(xAt(i), yOf(s.private_ws[i])) : ctx.lineTo(xAt(i), yOf(s.private_ws[i]));
-    }
-    ctx.strokeStyle = COLORS.privateWs;
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-
-    panelLabel(ctx, `ComfyUI process private memory (incl. mapped files) - max ${human(maxV)}`, 4, y0 + 12);
-    panelLabel(ctx, "dark red = evicted (<= pagefile used)   light red = untouched commit", 4, y0 + 24, w - 8);
+    scaleTag(ctx, x1, py0, human(maxV));
 }
 
-function drawPanelB(ctx, w, y0, y1, start, n, xAt) {
-    const h = y1 - y0;
-    const s = state.series;
-    const count = n - start;
-    const barW = Math.max(1, w / Math.max(1, count));
+function fillBand(ctx, start, n, xAt, topFn, bottomFn, fill) {
+    ctx.beginPath();
+    ctx.moveTo(xAt(start), topFn(start));
+    for (let i = start; i < n; i++) ctx.lineTo(xAt(i), topFn(i));
+    for (let i = n - 1; i >= start; i--) ctx.lineTo(xAt(i), bottomFn(i));
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+}
+
+function strokeSeries(ctx, start, n, xAt, yFn, color, width) {
+    ctx.beginPath();
     for (let i = start; i < n; i++) {
-        const total = Math.max(1, s.phys_total[i]);
-        const inUse = num(s.in_use[i]) / total;
-        const modified = num(s.modified[i]) / total;
-        const standby = num(s.standby[i]) / total;
-        const free = num(s.free[i]) / total;
-        const x = xAt(i);
-        let y = y1;
-        const segs = [
-            [inUse, COLORS.inUse],
-            [modified, COLORS.modified],
-            [standby, COLORS.standby],
-            [free, COLORS.free],
-        ];
-        for (const [frac, color] of segs) {
-            const seg = frac * (h - 14);
-            ctx.fillStyle = color;
-            ctx.fillRect(x, y - seg, Math.max(1, barW), seg);
-            y -= seg;
+        const y = yFn(i);
+        i === start ? ctx.moveTo(xAt(i), y) : ctx.lineTo(xAt(i), y);
+    }
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineJoin = "round";
+    ctx.stroke();
+}
+
+function drawPanelB(ctx, x0, x1, panel, start, n, xAt) {
+    const s = state.series;
+    const py0 = panel.y0 + TITLE_BAND;
+    const py1 = panel.y1;
+    const h = py1 - py0;
+
+    panelHeader(ctx, x0, x1, panel.y0, "System RAM", [
+        { label: "in use", color: COLORS.inUse },
+        { label: "modified", color: COLORS.modified },
+        { label: "standby", color: COLORS.standby },
+        { label: "free", color: COLORS.free },
+    ]);
+
+    // Stacked areas, not one bar per sample: at 1 Hz over 15 minutes the bars
+    // are sub-pixel and the panel reads as empty.
+    const total = (i) => Math.max(1, s.phys_total[i]);
+    let lower = null;
+    const segs = [
+        ["in_use", COLORS.inUse],
+        ["modified", COLORS.modified],
+        ["standby", COLORS.standby],
+        ["free", COLORS.free],
+    ];
+    for (const [key, color] of segs) {
+        const upper = [];
+        for (let i = start; i < n; i++) {
+            const base = lower ? lower[i - start] : py1;
+            upper.push(base - (num(s[key][i]) / total(i)) * h);
         }
+        ctx.beginPath();
+        ctx.moveTo(xAt(start), upper[0]);
+        for (let i = start; i < n; i++) ctx.lineTo(xAt(i), upper[i - start]);
+        for (let i = n - 1; i >= start; i--) {
+            ctx.lineTo(xAt(i), lower ? lower[i - start] : py1);
+        }
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        lower = upper;
     }
-    panelLabel(ctx, "System physical RAM (in-use / modified / standby / free)", 4, y0 + 12);
+
+    scaleTag(ctx, x1, py0, human(state.series.phys_total[n - 1]));
 }
 
-function drawPanelC(ctx, w, y0, y1, start, n, xAt) {
-    const h = y1 - y0;
+function drawPanelC(ctx, x0, x1, panel, start, n, xAt) {
     const s = state.series;
+    const py0 = panel.y0 + TITLE_BAND;
+    const py1 = panel.y1;
+    const h = py1 - py0;
+
     let maxV = 1;
     for (let i = start; i < n; i++) maxV = Math.max(maxV, s.page_reads_sec[i]);
     maxV = niceCeil(maxV);
-    const count = n - start;
-    const barW = Math.max(1, w / Math.max(1, count));
-    // \Memory\Page Reads/sec (the counter behind page_reads_sec) fires for
-    // ANY fault against backing store - the pagefile AND memory-mapped
-    // files. torch/mmap loading a checkpoint spikes this with zero
-    // pagefile growth, so a bar only turns red (implicating the pagefile)
-    // when that sample's pagefile_delta also grew by more than 1 MB/s -
-    // amber otherwise, meaning "disk activity, cause unproven".
-    const PAGEFILE_GROWTH_THRESHOLD = 1024 * 1024; // 1 MB/s
+
+    panelHeader(ctx, x0, x1, panel.y0, "Hard faults / s", [
+        { label: "pagefile", color: COLORS.critical },
+        { label: "mapped file", color: COLORS.evicted },
+    ]);
+    plotGrid(ctx, x0, x1, py0, py1);
+
+    // \Memory\Page Reads/sec fires for a fault against ANY backing store, so a
+    // bar only earns the critical hue when that same sample's pagefile
+    // actually grew. Amber means "disk, cause unproven".
+    const barW = Math.max(1, (x1 - x0) / Math.max(1, n - start) - 1);
     for (let i = start; i < n; i++) {
         const v = num(s.page_reads_sec[i]);
-        const seg = (v / maxV) * (h - 14);
+        if (v <= 0) continue;
+        const seg = (v / maxV) * h;
         const growing = num(s.pagefile_delta[i]) > PAGEFILE_GROWTH_THRESHOLD;
-        ctx.fillStyle = growing ? COLORS.hardReadsPagefile : COLORS.hardReads;
-        ctx.fillRect(xAt(i), y1 - seg, Math.max(1, barW), seg);
+        ctx.fillStyle = growing ? COLORS.critical : COLORS.evicted;
+        const bx = Math.max(x0, xAt(i) - barW / 2);
+        const bw = Math.min(barW, x1 - bx);
+        // rounded data-end, anchored to the baseline
+        roundRect(ctx, bx, py1 - seg, Math.max(1, bw), seg, Math.min(2, bw / 2));
+        ctx.fill();
     }
-    panelLabel(ctx, `Hard faults - memory served from disk (pagefile OR mapped files) - peak ${maxV.toFixed(0)}/s`, 4, y0 + 12);
-    panelLabel(ctx, "red bar = faulting AND pagefile grew (implicates the pagefile)   amber = disk activity, cause unproven", 4, y0 + 24, w - 8);
+
+    scaleTag(ctx, x1, py0, `${maxV.toFixed(0)}/s`);
 }
 
-function drawMarkers(ctx, w, y0, y1, tMin, tMax) {
+function drawTimeAxis(ctx, x0, x1, yTop, cssH) {
+    ctx.font = `9px ${FONT_NUM}`;
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = COLORS.ink3;
+    const y = yTop + AXIS_BAND / 2;
+    const win = state.windowSeconds;
+    // Round to one decimal rather than to whole minutes: a 5m window's
+    // midpoint is 2.5m, and rounding it to "-3m" mislabels the axis.
+    const stamp = (secs) => {
+        if (secs < 60) return `-${Math.round(secs)}s`;
+        const m = secs / 60;
+        return `-${m % 1 === 0 ? m.toFixed(0) : m.toFixed(1)}m`;
+    };
+    ctx.textAlign = "left";
+    ctx.fillText(stamp(win), x0, y);
+    ctx.textAlign = "center";
+    ctx.fillText(stamp(win / 2), (x0 + x1) / 2, y);
+    ctx.textAlign = "right";
+    ctx.fillText("now", x1, y);
+    ctx.textAlign = "left";
+}
+
+function drawMarkers(ctx, panels, tMin, tMax, x0, plotW) {
     const span = Math.max(1, tMax - tMin);
-    ctx.strokeStyle = COLORS.marker;
-    ctx.fillStyle = COLORS.marker;
-    ctx.font = "10px sans-serif";
-    ctx.lineWidth = 1;
+    ctx.font = `9px ${FONT_LABEL}`;
+    ctx.textBaseline = "middle";
     for (const m of state.markers) {
         const mt = num(m && m.t);
         if (mt < tMin || mt > tMax) continue;
-        const x = ((mt - tMin) / span) * w;
+        const x = x0 + ((mt - tMin) / span) * plotW;
+        ctx.strokeStyle = COLORS.marker;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 3]);
         ctx.beginPath();
-        ctx.moveTo(x, y0);
-        ctx.lineTo(x, y1);
+        for (const p of panels) {
+            ctx.moveTo(x, p.y0 + TITLE_BAND);
+            ctx.lineTo(x, p.y1);
+        }
         ctx.stroke();
+        ctx.setLineDash([]);
         const label = (m && m.label) || "";
-        if (label) ctx.fillText(label, x + 3, y0 + 10);
+        if (label) {
+            // A marker dropped "now" sits at the right edge, where its label
+            // would print straight through the scale tag. Flip it to the left
+            // of its own line there, and plate it so it never sits on a mark.
+            const lw = ctx.measureText(label).width;
+            const x1 = x0 + plotW;
+            const flip = x + 5 + lw > x1 - 52;
+            const lx = flip ? x - 5 - lw : x + 5;
+            const ly = panels[0].y0 + TITLE_BAND + 7;
+            ctx.fillStyle = COLORS.plate;
+            ctx.fillRect(lx - 2, ly - 6, lw + 4, 12);
+            ctx.fillStyle = COLORS.marker;
+            ctx.fillText(label, lx, ly);
+        }
     }
 }
 
+function drawCrosshair(ctx, panels, xAt, start, n) {
+    const hv = state.hover;
+    if (!hv || hv.index == null || hv.index < start || hv.index >= n) return;
+    const x = xAt(hv.index);
+    ctx.strokeStyle = COLORS.ink3;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (const p of panels) {
+        ctx.moveTo(x, p.y0 + TITLE_BAND);
+        ctx.lineTo(x, p.y1);
+    }
+    ctx.stroke();
+}
+
 // ---- header (plain DOM, text stays selectable) -----------------------------
+
+// One word per level, so the eyebrow says the state and the sentence explains
+// it. The backend's own text is rendered verbatim underneath.
+const LEVEL_WORD = { ok: "in RAM", mapped: "in RAM", warn: "mixed", alarm: "pagefile" };
 
 function updateHeader(surf) {
     const st = state.static;
@@ -441,51 +612,74 @@ function updateHeader(surf) {
     const verdict = state.lastVerdict;
 
     if (state.lastStatus === "unreachable") {
-        surf.verdictText.textContent = "backend unreachable";
-        surf.verdictDot.style.background = COLORS.verdict.warn;
+        surf.verdictRow.dataset.level = "warn";
+        surf.verdictHead.textContent = "no signal";
+        surf.verdictText.textContent = "backend unreachable - retrying every second";
         return;
     }
 
     if (verdict) {
         const level = verdict.level || "ok";
+        surf.verdictRow.dataset.level = level;
+        surf.verdictHead.textContent = LEVEL_WORD[level] || level;
         surf.verdictText.textContent = verdict.text || "";
-        surf.verdictDot.style.background = COLORS.verdict[level] || COLORS.verdict.ok;
     } else {
-        surf.verdictText.textContent = "waiting for data...";
-        surf.verdictDot.style.background = "#6c7696";
+        surf.verdictRow.dataset.level = "";
+        surf.verdictHead.textContent = "acquiring";
+        surf.verdictText.textContent = "waiting for the first sample";
     }
 
     const proc = (now && now.proc) || {};
     const sys = (now && now.sys) || {};
     const models = (now && now.models) || {};
 
-    surf.tiles.inRam.value.textContent = human(proc.private_ws);
-    surf.tiles.pagedOut.value.textContent = human(proc.paged_out);
-    surf.tiles.pagedOut.sub.textContent = `peak ${human(proc.paged_out_peak)}`;
-    // paged_out is just committed-minus-resident - it is NOT proof memory
-    // reached the pagefile. Flag it when most of the gap is untouched
-    // commit rather than real eviction, so the number doesn't get
-    // misread as "this much hit disk".
-    const pagedOutV = num(proc.paged_out);
-    const untouchedV = num(proc.untouched_commit);
-    if (pagedOutV > 0 && untouchedV > pagedOutV / 2) {
-        surf.tiles.pagedOut.note.textContent = "mostly untouched commit";
-        surf.tiles.pagedOut.note.style.display = "";
-    } else {
-        surf.tiles.pagedOut.note.style.display = "none";
-    }
-    surf.tiles.evictedMax.value.textContent = human(proc.evicted_max);
-    surf.tiles.evictedMax.sub.textContent = "upper bound";
-    surf.tiles.mapped.value.textContent = human(proc.mapped_ws);
+    const resident = num(proc.private_ws);
+    const mapped = num(proc.mapped_ws);
+    const gapV = num(proc.paged_out);
+    const evicted = Math.min(num(proc.evicted_max), gapV);
+    const untouched = Math.max(0, gapV - evicted);
+
+    // Hero: the answer, big. Split value from unit so the unit stays quiet.
+    const heroParts = human(resident).split(" ");
+    surf.heroFigure.textContent = heroParts[0];
+    surf.heroLabel.textContent = `${heroParts[1] || "B"} resident in RAM`;
+    surf.heroAside.textContent = `of ${human(resident + gapV + mapped)} held`;
+
+    // Density strip - flex-grow carries the proportion, so the segments always
+    // sum to the whole without any width arithmetic.
+    const total = Math.max(1, resident + evicted + untouched + mapped);
+    const setSeg = (el, v) => {
+        el.style.flexGrow = String(v / total);
+        // a zero-width segment would still show its 2px gap; hide it instead
+        el.style.display = v > 0 ? "" : "none";
+    };
+    setSeg(surf.segs.resident, resident);
+    setSeg(surf.segs.evicted, evicted);
+    setSeg(surf.segs.untouched, untouched);
+    setSeg(surf.segs.mapped, mapped);
+
+    surf.keys.resident.value.textContent = human(resident);
+    surf.keys.evicted.value.textContent = human(evicted);
+    surf.keys.untouched.value.textContent = human(untouched);
+    surf.keys.mapped.value.textContent = human(mapped);
+    // The evicted figure is a ceiling, not a measurement - say so where it is
+    // read, not only in the docs.
+    surf.keys.evicted.item.title = "upper bound: min(non-resident private bytes, system pagefile in use)";
+    surf.keys.untouched.item.title = "committed address space that was never touched - never written to disk";
+
     surf.tiles.committed.value.textContent = human(proc.private_bytes);
-    surf.tiles.pagefile.value.textContent = `${human(sys.pagefile_used)} / ${human(sys.pagefile_size)}`;
-    surf.tiles.hardReads.value.textContent = `${num(now && now.faults && now.faults.page_reads_sec).toFixed(1)}/s`;
-    // pagefile_delta is the one number that actually confirms pagefile
-    // growth (as opposed to page_reads_sec, which fires for mapped-file
-    // faults too) - red only when it is growing meaningfully.
+    surf.tiles.pagefile.value.textContent = human(sys.pagefile_used);
+    surf.tiles.pagefile.sub.textContent = `of ${human(sys.pagefile_size)}`;
+    const reads = num(now && now.faults && now.faults.page_reads_sec);
+    surf.tiles.hardReads.value.textContent = `${reads.toFixed(0)}/s`;
+    // pagefile_delta is the one number that actually confirms pagefile growth
+    // (page_reads_sec fires for mapped-file faults too), so it is the only
+    // readout allowed to turn critical.
     const pfDelta = num(sys.pagefile_delta);
+    const growing = pfDelta > 1024 * 1024;
     surf.tiles.pagefileTrend.value.textContent = formatRate(pfDelta);
-    surf.tiles.pagefileTrend.value.style.color = pfDelta > 1024 * 1024 ? COLORS.privateBytes : "";
+    surf.tiles.pagefileTrend.value.dataset.state = growing ? "critical" : "";
+    surf.tiles.hardReads.sub.textContent = growing ? "pagefile growing" : "disk, cause unproven";
 
     const modelList = Array.isArray(models.models) ? models.models : [];
     const gpus = Array.isArray(models.gpus) ? models.gpus : [];
@@ -504,6 +698,62 @@ function updateHeader(surf) {
     } else {
         surf.caveat.style.display = "none";
     }
+}
+
+// Maps a pointer x back to a sample index using the geometry of the last
+// render, so the hit target is the whole column rather than the 1px mark.
+function indexAtX(px) {
+    const g = lastGeo;
+    if (!g) return null;
+    if (px < g.x0 - 6 || px > g.x1 + 6) return null;
+    const t = state.series.t;
+    const frac = (px - g.x0) / Math.max(1, g.plotW);
+    const target = g.tMin + frac * Math.max(1, state.windowSeconds);
+    let best = null;
+    let bestD = Infinity;
+    for (let i = g.start; i < g.n; i++) {
+        const d = Math.abs(t[i] - target);
+        if (d < bestD) { bestD = d; best = i; }
+    }
+    return best;
+}
+
+function updateTip(tip, wrap, hover) {
+    if (!hover || hover.index == null) {
+        tip.style.display = "none";
+        return;
+    }
+    const i = hover.index;
+    const s = state.series;
+    const age = Math.max(0, Math.round(s.t[s.t.length - 1] - s.t[i]));
+    const gapV = Math.max(0, num(s.private_bytes[i]) - num(s.private_ws[i]));
+    const evicted = Math.min(num(s.evicted_max[i]), gapV);
+    const rows = [
+        ["in RAM", human(s.private_ws[i]), COLORS.residentLift],
+        ["evicted ≤", human(evicted), COLORS.evicted],
+        ["untouched", human(gapV - evicted), COLORS.voidEdge],
+        ["mapped", human(s.mapped_ws[i]), COLORS.mapped],
+        ["faults", `${num(s.page_reads_sec[i]).toFixed(0)}/s`,
+            num(s.pagefile_delta[i]) > PAGEFILE_GROWTH_THRESHOLD ? COLORS.critical : COLORS.evicted],
+    ];
+    tip.innerHTML =
+        `<div class="memxray-tip-time">${age === 0 ? "now" : `-${age}s`}</div>` +
+        rows.map(([label, value, color]) =>
+            `<div class="memxray-tip-row"><span style="color:${color}">${label}</span><b>${value}</b></div>`
+        ).join("");
+
+    tip.style.display = "block";
+    // flip the tip to the other side of the cursor near the right/bottom edge
+    const w = wrap.clientWidth;
+    const h = wrap.clientHeight;
+    const tw = tip.offsetWidth;
+    const th = tip.offsetHeight;
+    let x = hover.x + 14;
+    let y = hover.y + 14;
+    if (x + tw > w - 4) x = hover.x - tw - 14;
+    if (y + th > h - 4) y = Math.max(4, hover.y - th - 14);
+    tip.style.left = `${Math.max(4, x)}px`;
+    tip.style.top = `${Math.max(4, y)}px`;
 }
 
 function redrawAll() {
@@ -527,89 +777,270 @@ function injectStyle() {
     style.id = "memxray-style";
     style.textContent = `
 .memxray-root {
+    --mx-plate: ${COLORS.plate};
+    --mx-surface: ${COLORS.surface};
+    --mx-raised: ${COLORS.raised};
+    --mx-line: ${COLORS.line};
+    --mx-ink: ${COLORS.ink};
+    --mx-ink-2: ${COLORS.ink2};
+    --mx-ink-3: ${COLORS.ink3};
+    --mx-resident: ${COLORS.resident};
+    --mx-resident-lift: ${COLORS.residentLift};
+    --mx-mapped: ${COLORS.mapped};
+    --mx-evicted: ${COLORS.evicted};
+    --mx-critical: ${COLORS.critical};
+    --mx-label: ${FONT_LABEL};
+    --mx-num: ${FONT_NUM};
+
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
-    background: #20232b;
-    color: #d8dae0;
-    font-family: sans-serif;
+    background: var(--mx-surface);
+    color: var(--mx-ink);
+    font-family: "Segoe UI", system-ui, sans-serif;
     font-size: 12px;
     box-sizing: border-box;
-    padding: 8px;
-    gap: 6px;
+    padding: 12px;
+    gap: 10px;
 }
 .memxray-root * { box-sizing: border-box; }
-.memxray-verdict-row { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
-.memxray-dot { width: 10px; height: 10px; border-radius: 50%; background: #6c7696; flex: none; }
-.memxray-tiles { display: flex; flex-wrap: wrap; gap: 6px; }
-.memxray-tile {
-    background: #2a2e38;
-    border: 1px solid #3a3e4c;
-    border-radius: 4px;
-    padding: 4px 8px;
-    min-width: 84px;
+
+/* --- verdict: a colored rule, not a colored blob ------------------------ */
+.memxray-verdict-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px 8px 0;
+    border-left: 2px solid var(--mx-ink-3);
+    padding-left: 10px;
+    line-height: 1.35;
 }
-.memxray-tile .memxray-tile-label { font-size: 10px; color: #9aa0ad; }
-.memxray-tile .memxray-tile-value { font-size: 13px; font-weight: 600; }
-.memxray-tile .memxray-tile-sub { font-size: 9px; color: #7a8090; }
-.memxray-tile .memxray-tile-note { font-style: italic; }
-.memxray-models-line { font-size: 11px; color: #b8bcc6; }
-.memxray-caveat {
+.memxray-verdict-row[data-level="ok"] { border-left-color: var(--mx-resident-lift); }
+.memxray-verdict-row[data-level="mapped"] { border-left-color: var(--mx-mapped); }
+.memxray-verdict-row[data-level="warn"] { border-left-color: var(--mx-evicted); }
+.memxray-verdict-row[data-level="alarm"] { border-left-color: var(--mx-critical); }
+.memxray-verdict-head {
+    font-family: var(--mx-label);
     font-size: 10px;
-    color: #f0b042;
-    background: rgba(240, 176, 66, 0.12);
-    border: 1px solid rgba(240, 176, 66, 0.4);
-    border-radius: 3px;
-    padding: 3px 6px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+    display: block;
+    margin-bottom: 2px;
 }
+.memxray-verdict-row[data-level="ok"] .memxray-verdict-head { color: var(--mx-resident-lift); }
+.memxray-verdict-row[data-level="mapped"] .memxray-verdict-head { color: var(--mx-mapped); }
+.memxray-verdict-row[data-level="warn"] .memxray-verdict-head { color: var(--mx-evicted); }
+.memxray-verdict-row[data-level="alarm"] .memxray-verdict-head { color: var(--mx-critical); }
+.memxray-verdict-text { font-size: 12.5px; color: var(--mx-ink); }
+.memxray-dot { display: none; }
+
+/* --- hero + density strip: the signature ------------------------------- */
+.memxray-hero { display: flex; align-items: baseline; gap: 10px; }
+.memxray-hero-figure {
+    font-size: 30px;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+    line-height: 1;
+    color: var(--mx-ink);
+    font-variant-numeric: proportional-nums;
+}
+.memxray-hero-label {
+    font-family: var(--mx-label);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+}
+.memxray-hero-aside {
+    margin-left: auto;
+    font-family: var(--mx-num);
+    font-size: 10.5px;
+    color: var(--mx-ink-2);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.memxray-strip { display: flex; flex-direction: column; gap: 7px; }
+.memxray-strip-track {
+    display: flex;
+    height: 16px;
+    background: var(--mx-plate);
+    border-radius: 3px;
+    overflow: hidden;
+    gap: 2px; /* 2px surface gap between segments, never a border */
+}
+.memxray-seg { min-width: 0; transition: flex-grow 300ms ease; }
+.memxray-seg-resident { background: var(--mx-resident); }
+.memxray-seg-evicted { background: var(--mx-evicted); }
+.memxray-seg-untouched { background: ${COLORS.voidEdge}; }
+.memxray-seg-mapped { background: var(--mx-mapped); }
+.memxray-strip-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 10.5px;
+    color: var(--mx-ink-2);
+}
+.memxray-key { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.memxray-key-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.memxray-key-value {
+    font-family: var(--mx-num);
+    font-variant-numeric: tabular-nums;
+    color: var(--mx-ink);
+}
+.memxray-key-muted { color: var(--mx-ink-3); }
+
+/* --- secondary readouts ------------------------------------------------- */
+.memxray-readouts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    padding-top: 8px;
+    border-top: 1px solid var(--mx-line);
+}
+.memxray-readout { display: flex; flex-direction: column; gap: 2px; min-width: 62px; }
+.memxray-readout-label {
+    font-family: var(--mx-label);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+}
+.memxray-readout-value {
+    font-family: var(--mx-num);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    color: var(--mx-ink);
+}
+.memxray-readout-value[data-state="critical"] { color: var(--mx-critical); }
+.memxray-readout-sub { font-size: 9px; color: var(--mx-ink-3); }
+
+.memxray-models-line {
+    font-family: var(--mx-num);
+    font-size: 10px;
+    color: var(--mx-ink-3);
+    font-variant-numeric: tabular-nums;
+}
+.memxray-caveat {
+    font-size: 10.5px;
+    color: var(--mx-evicted);
+    background: rgba(189, 129, 30, 0.10);
+    border-left: 2px solid var(--mx-evicted);
+    padding: 5px 8px;
+}
+
+/* --- controls ----------------------------------------------------------- */
 .memxray-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.memxray-controls input[type="text"] {
-    background: #2a2e38; border: 1px solid #3a3e4c; color: #d8dae0;
-    border-radius: 3px; padding: 3px 6px; font-size: 11px; width: 90px;
+/* ComfyUI ships global input styling that otherwise wins on specificity and
+   renders this as a white box in the middle of a dark instrument panel. */
+.memxray-root .memxray-controls input[type="text"] {
+    background: var(--mx-plate) !important;
+    border: 1px solid var(--mx-line) !important;
+    color: var(--mx-ink) !important;
+    border-radius: 3px;
+    padding: 4px 7px;
+    font-size: 11px;
+    width: 96px;
+    font-family: inherit;
+    box-shadow: none;
+}
+.memxray-root .memxray-controls input[type="text"]::placeholder { color: var(--mx-ink-3); }
+.memxray-controls input[type="text"]:focus-visible,
+.memxray-controls button:focus-visible,
+.memxray-controls select:focus-visible {
+    outline: 2px solid var(--mx-resident-lift);
+    outline-offset: 1px;
 }
 .memxray-controls button, .memxray-controls select {
-    background: #34384a; border: 1px solid #454a5e; color: #d8dae0;
-    border-radius: 3px; padding: 3px 8px; font-size: 11px; cursor: pointer;
+    background: var(--mx-raised);
+    border: 1px solid var(--mx-line);
+    color: var(--mx-ink-2);
+    border-radius: 3px;
+    padding: 4px 10px;
+    font-family: var(--mx-label);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
 }
-.memxray-controls button:hover { background: #3d4256; }
-.memxray-canvas-wrap { flex: 1; min-height: 0; position: relative; }
-.memxray-canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+.memxray-controls button:hover, .memxray-controls select:hover {
+    color: var(--mx-ink);
+    border-color: var(--mx-ink-3);
+}
+.memxray-spacer { margin-left: auto; }
 
+.memxray-canvas-wrap { flex: 1 1 auto; min-height: 240px; position: relative; }
+.memxray-canvas-wrap canvas { width: 100%; height: 100%; display: block; border-radius: 3px; }
+.memxray-tip {
+    position: absolute;
+    pointer-events: none;
+    display: none;
+    background: rgba(9, 12, 16, 0.96);
+    border: 1px solid var(--mx-line);
+    border-radius: 3px;
+    padding: 7px 9px;
+    font-family: var(--mx-num);
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--mx-ink-2);
+    white-space: nowrap;
+    z-index: 3;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.55);
+}
+.memxray-tip b { color: var(--mx-ink); font-weight: 500; }
+.memxray-tip-row { display: flex; justify-content: space-between; gap: 14px; }
+.memxray-tip-time {
+    font-family: var(--mx-label);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+    font-size: 9px;
+    margin-bottom: 4px;
+}
+
+/* --- shells ------------------------------------------------------------- */
 .memxray-float-panel {
     position: fixed;
     z-index: 9999;
-    background: #20232b;
-    border: 1px solid #3a3e4c;
+    background: var(--mx-surface, #12161b);
+    border: 1px solid #232b34;
     border-radius: 6px;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    box-shadow: 0 18px 50px rgba(0,0,0,0.62);
     display: none;
     flex-direction: column;
-    min-width: 420px;
-    min-height: 420px;
-    width: 560px;
-    height: 620px;
+    min-width: 460px;
+    min-height: 460px;
+    width: 580px;
+    height: 680px;
     overflow: hidden;
     resize: both;
 }
 .memxray-float-panel.memxray-visible { display: flex; }
 .memxray-float-header {
-    background: #2a2e38;
-    padding: 6px 10px;
+    background: #12161b;
+    padding: 9px 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: move;
     user-select: none;
-    border-bottom: 1px solid #3a3e4c;
+    border-bottom: 1px solid #232b34;
     flex: none;
 }
-.memxray-float-title { font-weight: 600; font-size: 12px; }
+.memxray-float-title {
+    font-family: ${FONT_LABEL};
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #93a1af;
+}
 .memxray-float-close {
-    background: transparent; border: none; color: #b8bcc6; cursor: pointer;
+    background: transparent; border: none; color: #5f6d7a; cursor: pointer;
     font-size: 14px; line-height: 1; padding: 2px 6px;
 }
-.memxray-float-close:hover { color: #e2544a; }
+.memxray-float-close:hover { color: #e2564a; }
 .memxray-float-body { flex: 1; min-height: 0; }
 
 .memxray-toggle-btn {
@@ -617,16 +1048,22 @@ function injectStyle() {
     right: 12px;
     bottom: 12px;
     z-index: 9998;
-    background: #34384a;
-    border: 1px solid #454a5e;
-    color: #d8dae0;
-    border-radius: 20px;
-    padding: 6px 12px;
-    font-size: 11px;
+    background: #12161b;
+    border: 1px solid #232b34;
+    color: #93a1af;
+    border-radius: 3px;
+    padding: 7px 12px;
+    font-family: ${FONT_LABEL};
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
     cursor: pointer;
-    opacity: 0.85;
 }
-.memxray-toggle-btn:hover { opacity: 1; }
+.memxray-toggle-btn:hover { color: #e4eaf0; border-color: #5f6d7a; }
+
+@media (prefers-reduced-motion: reduce) {
+    .memxray-seg { transition: none; }
+}
 `;
     document.head.appendChild(style);
 }
@@ -642,50 +1079,115 @@ function buildSurface(container) {
     const root = document.createElement("div");
     root.className = "memxray-root";
 
+    // Verdict: an eyebrow naming the state, then the sentence. The level is
+    // carried by a left rule and the eyebrow color, so it never becomes a
+    // saturated block competing with the data.
     const verdictRow = document.createElement("div");
     verdictRow.className = "memxray-verdict-row";
-    const dot = document.createElement("span");
-    dot.className = "memxray-dot";
+    verdictRow.setAttribute("role", "status");
+    const verdictBody = document.createElement("div");
+    const verdictHead = document.createElement("span");
+    verdictHead.className = "memxray-verdict-head";
+    verdictHead.textContent = "acquiring";
     const verdictText = document.createElement("span");
-    verdictText.textContent = "waiting for data...";
+    verdictText.className = "memxray-verdict-text";
+    verdictText.textContent = "waiting for the first sample";
+    verdictBody.appendChild(verdictHead);
+    verdictBody.appendChild(verdictText);
+    verdictRow.appendChild(verdictBody);
+    const dot = document.createElement("span"); // kept for older callers; hidden by CSS
+    dot.className = "memxray-dot";
     verdictRow.appendChild(dot);
-    verdictRow.appendChild(verdictText);
 
-    const tilesRow = document.createElement("div");
-    tilesRow.className = "memxray-tiles";
-    function makeTile(label) {
-        const tile = document.createElement("div");
-        tile.className = "memxray-tile";
-        const l = document.createElement("div");
-        l.className = "memxray-tile-label";
+    // Hero: one number answers the question. Eight equal tiles answered none.
+    const hero = document.createElement("div");
+    hero.className = "memxray-hero";
+    const heroFigure = document.createElement("span");
+    heroFigure.className = "memxray-hero-figure";
+    heroFigure.textContent = "--";
+    const heroLabel = document.createElement("span");
+    heroLabel.className = "memxray-hero-label";
+    heroLabel.textContent = "resident in RAM";
+    const heroAside = document.createElement("span");
+    heroAside.className = "memxray-hero-aside";
+    hero.appendChild(heroFigure);
+    hero.appendChild(heroLabel);
+    hero.appendChild(heroAside);
+
+    // The signature element: everything ComfyUI holds, as one strip. Bright
+    // means present in RAM; the dark segment is absence. Part-to-whole at a
+    // glance, four segments, which is what a strip is actually good at.
+    const strip = document.createElement("div");
+    strip.className = "memxray-strip";
+    const track = document.createElement("div");
+    track.className = "memxray-strip-track";
+    const segs = {};
+    const legend = document.createElement("div");
+    legend.className = "memxray-strip-legend";
+    const keys = {};
+    for (const [key, cls, label] of [
+        ["resident", "memxray-seg-resident", "in RAM"],
+        // the "<=" is load-bearing: this figure is a ceiling, not a measurement
+        ["evicted", "memxray-seg-evicted", "evicted ≤"],
+        ["untouched", "memxray-seg-untouched", "untouched"],
+        ["mapped", "memxray-seg-mapped", "mapped"],
+    ]) {
+        const seg = document.createElement("div");
+        seg.className = `memxray-seg ${cls}`;
+        seg.style.flexGrow = "0";
+        seg.title = label;
+        track.appendChild(seg);
+        segs[key] = seg;
+
+        const item = document.createElement("span");
+        item.className = "memxray-key";
+        const sw = document.createElement("span");
+        sw.className = `memxray-key-swatch ${cls}`;
+        const name = document.createElement("span");
+        name.textContent = label;
+        const val = document.createElement("span");
+        val.className = "memxray-key-value";
+        val.textContent = "--";
+        item.appendChild(sw);
+        item.appendChild(name);
+        item.appendChild(val);
+        legend.appendChild(item);
+        keys[key] = { value: val, item };
+    }
+    strip.appendChild(track);
+    strip.appendChild(legend);
+
+    // Secondary readouts - the numbers you check after the headline.
+    const readouts = document.createElement("div");
+    readouts.className = "memxray-readouts";
+    function makeReadout(label) {
+        const wrap = document.createElement("div");
+        wrap.className = "memxray-readout";
+        const l = document.createElement("span");
+        l.className = "memxray-readout-label";
         l.textContent = label;
-        const v = document.createElement("div");
-        v.className = "memxray-tile-value";
-        v.textContent = "-";
-        const s = document.createElement("div");
-        s.className = "memxray-tile-sub";
-        // extra dim line, hidden unless a tile needs a second note (e.g.
-        // "mostly untouched commit" on the Paged out tile)
-        const note = document.createElement("div");
-        note.className = "memxray-tile-sub memxray-tile-note";
-        note.style.display = "none";
-        tile.appendChild(l);
-        tile.appendChild(v);
-        tile.appendChild(s);
-        tile.appendChild(note);
-        tilesRow.appendChild(tile);
-        return { root: tile, value: v, sub: s, note };
+        const v = document.createElement("span");
+        v.className = "memxray-readout-value";
+        v.textContent = "--";
+        const s = document.createElement("span");
+        s.className = "memxray-readout-sub";
+        wrap.appendChild(l);
+        wrap.appendChild(v);
+        wrap.appendChild(s);
+        readouts.appendChild(wrap);
+        return { root: wrap, value: v, sub: s };
     }
     const tiles = {
-        inRam: makeTile("In RAM"),
-        pagedOut: makeTile("Paged out"),
-        evictedMax: makeTile("Evicted (max)"),
-        mapped: makeTile("Mapped files"),
-        committed: makeTile("Committed"),
-        pagefile: makeTile("Pagefile"),
-        pagefileTrend: makeTile("Pagefile trend"),
-        hardReads: makeTile("Hard reads/s"),
+        committed: makeReadout("committed"),
+        pagefile: makeReadout("pagefile"),
+        pagefileTrend: makeReadout("trend"),
+        hardReads: makeReadout("hard faults"),
     };
+    // kept so updateHeader can address them uniformly
+    tiles.inRam = { value: heroFigure, sub: heroAside, note: heroAside };
+    tiles.pagedOut = { value: keys.untouched.value, sub: heroAside, note: heroAside };
+    tiles.evictedMax = { value: keys.evicted.value, sub: heroAside };
+    tiles.mapped = { value: keys.mapped.value, sub: heroAside };
 
     const modelsLine = document.createElement("div");
     modelsLine.className = "memxray-models-line";
@@ -754,8 +1256,39 @@ function buildSurface(container) {
     canvasWrap.appendChild(canvas);
     const ctx = canvas.getContext("2d");
 
+    // Hover layer: a crosshair plus a readout of that sample. Tooltips
+    // enhance here, they never gate - every value is also on the strip.
+    const tip = document.createElement("div");
+    tip.className = "memxray-tip";
+    canvasWrap.appendChild(tip);
+
+    canvas.addEventListener("pointermove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const px = e.clientX - rect.left;
+        const py = e.clientY - rect.top;
+        const idx = indexAtX(px);
+        state.hover = idx == null ? null : { index: idx, x: px, y: py };
+        updateTip(tip, canvasWrap, state.hover);
+        try {
+            drawPanels(canvas, ctx);
+        } catch (err) {
+            console.error("[MemXray] hover redraw failed", err);
+        }
+    });
+    canvas.addEventListener("pointerleave", () => {
+        state.hover = null;
+        tip.style.display = "none";
+        try {
+            drawPanels(canvas, ctx);
+        } catch (err) {
+            console.error("[MemXray] hover redraw failed", err);
+        }
+    });
+
     root.appendChild(verdictRow);
-    root.appendChild(tilesRow);
+    root.appendChild(hero);
+    root.appendChild(strip);
+    root.appendChild(readouts);
     root.appendChild(modelsLine);
     root.appendChild(caveat);
     root.appendChild(controls);
@@ -776,7 +1309,9 @@ function buildSurface(container) {
 
     const surf = {
         id, root, canvas, ctx,
-        verdictDot: dot, verdictText,
+        verdictDot: dot, verdictText, verdictRow, verdictHead,
+        heroFigure, heroLabel, heroAside,
+        segs, keys, tip,
         tiles, modelsLine, caveat,
         resizeObserver,
     };

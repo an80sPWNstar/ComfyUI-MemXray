@@ -13,14 +13,17 @@ answers it directly, with a plain-language verdict at the top.
 
 ![The Mem X-Ray panel](docs/panel.png)
 
-That screenshot is a real reading. It says: **RAM**. There is a 2.47 GB gap
-between what ComfyUI committed and what is resident — which looks alarming —
-but the pagefile is not growing, so that gap is address space that was
-committed and never touched. Nothing was evicted. The amber bars at the bottom
-are real disk reads, but they are memory-mapped `.safetensors` pages being read
-in, not pagefile traffic.
+That screenshot is a real reading, and the strip under the headline is the
+whole story: how much ComfyUI holds, and how much of it is actually in RAM.
+The verdict says **in RAM**. There is a gap between what ComfyUI committed and
+what is resident — which looks alarming — but the pagefile is not growing, so
+that gap is address space that was committed and never touched. Nothing was
+evicted. The amber bars at the bottom are real disk reads, but they are
+memory-mapped `.safetensors` pages being read in, not pagefile traffic.
 
-Getting *that* distinction right is most of what this pack does.
+Getting *that* distinction right is most of what this pack does — which is why
+the warning color is a dashed hairline rather than a filled block. A ceiling
+you cannot attribute does not get to look like a measurement.
 
 ---
 
@@ -48,11 +51,11 @@ Press **Alt+M** for the floating panel, or open the **Mem X-Ray** sidebar tab.
 The panel is three stacked graphs sharing one time axis, plus stat tiles and a
 one-line verdict.
 
-**Top graph — ComfyUI's private memory.** Green area is memory genuinely
-resident in RAM. The red line above it is what the process committed. The band
-between them is memory that is *not* in RAM, split into a dark-red lower slice
-(could actually be on disk) and a lighter upper slice (untouched commit). The
-thin blue line adds memory-mapped file pages.
+**Top graph — ComfyUI's private memory.** The solid cyan block is memory
+genuinely resident in RAM — bright means present. Above it, a **dashed amber
+line** marks how much *could* be on disk; it is dashed because that figure is a
+ceiling, not a measurement. Above that, the faint void is committed address
+space that was never touched. The violet line adds memory-mapped file pages.
 
 **Middle graph — system physical RAM**, stacked: in-use / modified / standby
 cache / free. Standby is not "used" memory; it is cache Windows will hand back
@@ -65,11 +68,12 @@ What the combinations mean:
 
 | What you see | What it means |
 | --- | --- |
-| Green flat and high, red line sitting on it, no bars | Models are cached in RAM. Working as intended. |
+| Cyan block deep and steady, dashed line low, no bars | Models are cached in RAM. Working as intended. |
 | Amber bars, pagefile trend flat | Reading from disk — but from mapped model files, not the pagefile. Normal during a checkpoint load. |
 | **Red bars, pagefile trend climbing** | The actual bad case. You are generating out of the pagefile. This is what makes things crawl. |
-| Wide red band, no bars | Memory left RAM but nothing is reading it back. Costs you nothing until something touches it. Check the `Evicted (max)` tile before believing the whole band. |
-| Blue line well above green, no red band | Lots of mmap'd model files. Normal for safetensors; those evict back to the model file, not the pagefile. |
+| Cyan block shrinks, dashed amber line rises, no bars | Memory left RAM but nothing is reading it back. Costs you nothing until something touches it. |
+| Big void above the cyan block, dashed line still low | Committed but untouched. Looks dramatic, costs nothing — this is the case everyone misreads as swapping. |
+| Violet line well above the cyan block | Lots of mmap'd model files. Normal for safetensors; those evict back to the model file, not the pagefile. |
 
 The single most useful habit: **never read a fault bar on its own.** Check
 whether the pagefile is growing at the same time. The panel colours the bars
