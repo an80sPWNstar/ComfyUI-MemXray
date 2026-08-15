@@ -1,0 +1,392 @@
+## ComfyUI-Manager: installing dependencies done.
+[2026-08-14 15:16:14.241] ** ComfyUI startup time: 2026-08-14 15:16:14.241
+[2026-08-14 15:16:14.241] ** Platform: Windows
+[2026-08-14 15:16:14.241] ** Python version: 3.13.12 (main, Feb 12 2026, 00:38:53) [MSC v.1944 64 bit (AMD64)]
+[2026-08-14 15:16:14.241] ** Python executable: D:\ComfyUI_Installs\New Main\ComfyUI\.venv\Scripts\python.exe
+[2026-08-14 15:16:14.241] ** ComfyUI Path: D:\ComfyUI_Installs\New Main\ComfyUI
+[2026-08-14 15:16:14.241] ** ComfyUI Base Folder Path: D:\ComfyUI_Installs\New Main\ComfyUI
+[2026-08-14 15:16:14.242] ** User directory: D:\ComfyUI_Installs\New Main\ComfyUI\user
+[2026-08-14 15:16:14.242] ** ComfyUI-Manager config path: D:\ComfyUI_Installs\New Main\ComfyUI\user\__manager\config.ini
+[2026-08-14 15:16:14.242] ** Log path: D:\ComfyUI_Installs\New Main\ComfyUI\user\comfyui.log
+
+Prestartup times for custom nodes:
+[2026-08-14 15:16:17.632]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\rgthree-comfy
+[2026-08-14 15:16:17.633]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-easy-use
+[2026-08-14 15:16:17.633]   12.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-manager
+[2026-08-14 15:16:17.633] 
+[2026-08-14 15:16:20.413] D:\ComfyUI_Installs\New Main\ComfyUI\.venv\Lib\site-packages\torch\cuda\__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[2026-08-14 15:16:26.393] Found comfy_kitchen backend triton: {'available': True, 'disabled': True, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'int8_linear', 'na3d', 'quantize_and_rotate_rowwise', 'quantize_int8_rowwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'w4a8_int8_linear']}
+[2026-08-14 15:16:26.393] Found comfy_kitchen backend eager: {'available': True, 'disabled': False, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'convrot_w4a4_linear', 'dequantize_convrot_w4a4_weight', 'dequantize_int8_convrot_weight', 'dequantize_int8_convrot_weight_dtype', 'dequantize_int8_embedding', 'dequantize_int8_simple', 'dequantize_int8_simple_dtype', 'dequantize_mxfp8', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'dequantize_w4a8_int8_weight', 'gemv_awq_w4a16', 'int8_linear', 'na3d', 'prepare_int4_weight_for_int8_linear', 'quantize_and_rotate_rowwise', 'quantize_convrot_w4a4_weight', 'quantize_int8_convrot_weight', 'quantize_int8_rowwise', 'quantize_int8_tensorwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'quantize_svdquant_w4a4', 'quantize_w4a8_int8_weight', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'rotate_int8_convrot_weight', 'scaled_mm_mxfp8', 'scaled_mm_nvfp4', 'scaled_mm_svdquant_w4a4', 'stochastic_rounding_fp8', 'w4a8_int8_linear']}
+[2026-08-14 15:16:26.393] Found comfy_kitchen backend hip: {'available': False, 'disabled': False, 'unavailable_reason': 'PyTorch ROCm/HIP runtime not available', 'capabilities': []}
+[2026-08-14 15:16:26.393] Found comfy_kitchen backend cuda: {'available': True, 'disabled': False, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'convrot_w4a4_linear', 'dequantize_convrot_w4a4_weight', 'dequantize_int8_convrot_weight', 'dequantize_int8_convrot_weight_dtype', 'dequantize_int8_simple', 'dequantize_int8_simple_dtype', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'dequantize_w4a8_int8_weight', 'gemv_awq_w4a16', 'int8_linear', 'na3d', 'prepare_int4_weight_for_int8_linear', 'quantize_and_rotate_rowwise', 'quantize_convrot_w4a4_weight', 'quantize_int8_convrot_weight', 'quantize_int8_rowwise', 'quantize_int8_tensorwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'quantize_svdquant_w4a4', 'quantize_w4a8_int8_weight', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'rotate_int8_convrot_weight', 'scaled_mm_nvfp4', 'scaled_mm_svdquant_w4a4', 'stochastic_rounding_fp8', 'w4a8_int8_linear']}
+[2026-08-14 15:16:26.418] Checkpoint files will always be loaded safely.
+[2026-08-14 15:16:26.680] Total VRAM 16303 MB, total RAM 65409 MB
+[2026-08-14 15:16:26.680] pytorch version: 2.13.0+cu130
+[2026-08-14 15:16:26.681] Enabled fp16 accumulation.
+[2026-08-14 15:16:26.681] Set vram state to: NORMAL_VRAM
+[2026-08-14 15:16:26.681] Device: cuda:0 NVIDIA GeForce RTX 5070 Ti : cudaMallocAsync
+[2026-08-14 15:16:26.727] Using async weight offloading with 2 streams
+[2026-08-14 15:16:26.728] Enabled pinned memory 26163.0
+[2026-08-14 15:16:26.877] Using pytorch attention
+[2026-08-14 15:16:36.351] aimdo: src-win/cuda-detour.c:38:INFO:aimdo_setup_hooks: installing 6 hooks
+[2026-08-14 15:16:36.390] aimdo: src/control.c:262:INFO:comfy-aimdo NVML pressure enabled
+[2026-08-14 15:16:36.411] aimdo: src-win/shmem-detect.c:80:INFO:comfy-aimdo WDDM adapter match: NVIDIA GeForce RTX 5070 Ti runtime_luid=00000000:000137ea dxgi_luid=00000000:000137ea
+[2026-08-14 15:16:36.412] aimdo: src/control.c:277:INFO:comfy-aimdo inited for GPU: NVIDIA GeForce RTX 5070 Ti (VRAM: 16302 MB)
+[2026-08-14 15:16:36.412] DynamicVRAM support detected and enabled
+[2026-08-14 15:16:36.412] Python version: 3.13.12 (main, Feb 12 2026, 00:38:53) [MSC v.1944 64 bit (AMD64)]
+[2026-08-14 15:16:36.412] ComfyUI version: 0.33.1
+[2026-08-14 15:16:36.413] comfy-aimdo version: 0.4.13
+[2026-08-14 15:16:36.414] comfy-kitchen version: 0.2.31
+[2026-08-14 15:16:36.461] comfyui-frontend-package version: 1.48.7
+[2026-08-14 15:16:36.461] comfyui-workflow-templates version: 0.11.41
+[2026-08-14 15:16:36.461] comfyui-embedded-docs version: 0.5.9
+[2026-08-14 15:16:36.461] comfy-kitchen version: 0.2.31
+[2026-08-14 15:16:36.461] comfy-aimdo version: 0.4.13
+[2026-08-14 15:16:36.464] [Prompt Server] web root: D:\ComfyUI_Installs\New Main\ComfyUI\.venv\Lib\site-packages\comfyui_frontend_package\static
+[2026-08-14 15:16:36.466] Asset seeder disabled
+[2026-08-14 15:16:38.174] No OpenGL_accelerate module loaded: No module named 'OpenGL_accelerate'
+[2026-08-14 15:16:40.279] Web extensions folder found at D:\ComfyUI_Installs\New Main\ComfyUI\web\extensions\ComfyLiterals
+[2026-08-14 15:16:40.286] [Sequential ReadAhead] Default/non-classic ComfyUI cache detected. Heavy multi-model stress testing on ComfyUI 0.31.1 was unstable with the RAM-pressure cache but stable with --cache-classic. ReadAhead remains enabled; --cache-classic is recommended until this ComfyUI cache path is validated on your version.
+[2026-08-14 15:16:40.287] [Sequential ReadAhead] Installed v0.9.0 (ComfyUI 0.33.1, CUDA NVIDIA GeForce RTX 5070 Ti): isolated cached read-ahead=True, adaptive-budget=True, sampler-stop=True, chunk=32 MiB, RAM floor 3.5/2.5 GiB, cache=default, async-streams=2, unload/model-memory hooks=none
+[2026-08-14 15:16:40.508] [Crystools [0;32mINFO[0m] Crystools version: 1.27.4
+[2026-08-14 15:16:40.588] [Crystools [0;32mINFO[0m] Platform release: 11
+[2026-08-14 15:16:40.589] [Crystools [0;32mINFO[0m] JETSON: Not detected.
+[2026-08-14 15:16:40.590] [Crystools [0;32mINFO[0m] CPU: AMD Ryzen Threadripper 3960X 24-Core Processor - Arch: AMD64 - OS: Windows 11
+[2026-08-14 15:16:40.591] [Crystools [0;32mINFO[0m] pynvml (NVIDIA) initialized.
+[2026-08-14 15:16:40.591] [Crystools [0;32mINFO[0m] GPU/s:
+[2026-08-14 15:16:40.591] [Crystools [0;32mINFO[0m] 0) NVIDIA GeForce RTX 5070 Ti
+[2026-08-14 15:16:40.604] [Crystools [0;32mINFO[0m] 1) NVIDIA GeForce RTX 5060 Ti
+[2026-08-14 15:16:40.620] [Crystools [0;32mINFO[0m] 2) NVIDIA GeForce RTX 3090
+[2026-08-14 15:16:40.620] [Crystools [0;32mINFO[0m] NVIDIA Driver: 610.88
+[2026-08-14 15:16:45.446] [ComfyUI-Easy-Use] server: v1.3.6 Loaded
+[2026-08-14 15:16:45.446] [ComfyUI-Easy-Use] web root: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-easy-use\web_version/v2 Loaded
+[2026-08-14 15:16:45.498] ComfyUI-GGUF: Allowing full torch compile
+[2026-08-14 15:16:45.521] ### Loading: ComfyUI-Impact-Pack (V8.28.3)
+[2026-08-14 15:16:46.079] [Impact Pack] Wildcard total size (0.00 MB) is within cache limit (50.00 MB). Using full cache mode.
+[2026-08-14 15:16:46.107] [Impact Pack] Wildcards loading done.
+[2026-08-14 15:16:46.348] ### Loading: ComfyUI-Manager (V3.41)
+[2026-08-14 15:16:46.349] [ComfyUI-Manager] network_mode: public
+[2026-08-14 15:16:46.349] [ComfyUI-Manager] ComfyUI per-queue preview override detected (PR #11261). Manager's preview method feature is disabled. Use ComfyUI's --preview-method CLI option or 'Settings > Execution > Live preview method'.
+[2026-08-14 15:16:46.643] ### ComfyUI Revision: 5768 [72865f4f] *DETACHED | Released on '2026-08-13'
+[2026-08-14 15:16:48.198] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/alter-list.json
+[2026-08-14 15:16:48.225] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/model-list.json
+[2026-08-14 15:16:48.319] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/github-stats.json
+[2026-08-14 15:16:48.474] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
+[2026-08-14 15:16:48.601] [MemXray] sampling pid 32804 (python) via Process V2
+[2026-08-14 15:16:48.601] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/extension-node-map.json
+[2026-08-14 15:16:48.608] [MemXray] watching pid 32804, PDH counters available
+[2026-08-14 15:16:48.617] [Mobile Frontend] Loading custom node...
+[2026-08-14 15:16:50.099] [Mobile Frontend] Mobile UI enabled at: /mobile
+[2026-08-14 15:16:50.104] [MultiGPU Core Patching] Patching mm.soft_empty_cache for Comprehensive Memory Management (VRAM + CPU + Store Pruning)
+[2026-08-14 15:16:50.169] [MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[2026-08-14 15:16:50.170] [MultiGPU DEBUG] Initial current_device: cuda:0
+[2026-08-14 15:16:50.170] [MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[2026-08-14 15:16:50.171] [MultiGPU DEBUG] Initial current_unet_offload_device: cpu
+[2026-08-14 15:16:50.171] [MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[2026-08-14 15:16:50.171] [MultiGPU] Patched comfy.sample.sample with runtime device guard
+[2026-08-14 15:16:50.172] [MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[2026-08-14 15:16:50.173] [MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[2026-08-14 15:16:50.174] [MultiGPU] comfy_aimdo already initialized for CUDA devices [0]
+[2026-08-14 15:16:50.180] [MultiGPU] Initiating custom_node Registration. . .
+[2026-08-14 15:16:50.180] -----------------------------------------------
+[2026-08-14 15:16:50.180] custom_node                   Found     Nodes
+[2026-08-14 15:16:50.181] -----------------------------------------------
+[2026-08-14 15:16:50.186] ComfyUI-LTXVideo                  Y         1
+[2026-08-14 15:16:50.187] ComfyUI-Florence2                 N         0
+[2026-08-14 15:16:50.187] ComfyUI_bitsandbytes_NF4          N         0
+[2026-08-14 15:16:50.187] x-flux-comfyui                    N         0
+[2026-08-14 15:16:50.188] ComfyUI-MMAudio                   N         0
+[2026-08-14 15:16:50.188] ComfyUI-GGUF                      Y        18
+[2026-08-14 15:16:50.188] PuLID_ComfyUI                     N         0
+[2026-08-14 15:16:50.189] ComfyUI-WanVideoWrapper           Y        20
+[2026-08-14 15:16:50.189] -----------------------------------------------
+[2026-08-14 15:16:50.189] [MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, LTXVLoaderMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU, LoadWanVideoT5TextEncoderMultiGPU, WanVideoTextEncodeMultiGPU, WanVideoTextEncodeCachedMultiGPU, WanVideoTextEncodeSingleMultiGPU, WanVideoVAELoaderMultiGPU, WanVideoTinyVAELoaderMultiGPU, WanVideoBlockSwapMultiGPU, WanVideoImageToVideoEncodeMultiGPU, WanVideoDecodeMultiGPU, WanVideoModelLoaderMultiGPU, WanVideoSamplerMultiGPU, WanVideoVACEEncodeMultiGPU, WanVideoEncodeMultiGPU, LoadWanVideoClipTextEncoderMultiGPU, WanVideoClipVisionEncodeMultiGPU, WanVideoControlnetLoaderMultiGPU, FantasyTalkingModelLoaderMultiGPU, Wav2VecModelLoaderMultiGPU, WanVideoUni3C_ControlnetLoaderMultiGPU, DownloadAndLoadWav2VecModelMultiGPU
+[2026-08-14 15:16:50.234] Installed STP CORS-bypass middleware ahead of ComfyUI's chain
+[2026-08-14 15:16:50.234] Increased ComfyUI body size limit: 104857600 -> 4294967296 bytes
+[2026-08-14 15:16:50.253] No config file at D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Stimma\config.yaml, using defaults
+[2026-08-14 15:16:50.255] Installed animated video preview wrapper
+[2026-08-14 15:16:50.295] Added STP WebSocket route: /stp-v1
+[2026-08-14 15:16:50.298] Cleaned up stale asset dir: C:\Users\Bryan\AppData\Local\Temp\stimma-provider-assets-9a1ul1lx
+[2026-08-14 15:16:50.302] Local asset server using: C:\Users\Bryan\AppData\Local\Temp\stimma-provider-assets-5b1gzco8
+[2026-08-14 15:16:50.303] STP routes added to ComfyUI server
+[2026-08-14 15:16:50.308] Traceback (most recent call last):
+  File "D:\ComfyUI_Installs\New Main\ComfyUI\nodes.py", line 2263, in load_custom_node
+    module_spec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache\__init__.py", line 1, in <module>
+    from .nodes import NODE_CLASS_MAPPINGS as NODES_CLASS, NODE_DISPLAY_NAME_MAPPINGS as NODES_DISPLAY
+  File "D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache\nodes.py", line 12, in <module>
+    from comfy.ldm.lightricks.model import precompute_freqs_cis
+ImportError: cannot import name 'precompute_freqs_cis' from 'comfy.ldm.lightricks.model' (D:\ComfyUI_Installs\New Main\ComfyUI\comfy\ldm\lightricks\model.py)
+
+[2026-08-14 15:16:50.308] Cannot import D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache module for custom nodes: cannot import name 'precompute_freqs_cis' from 'comfy.ldm.lightricks.model' (D:\ComfyUI_Installs\New Main\ComfyUI\comfy\ldm\lightricks\model.py)
+[2026-08-14 15:16:51.724] [vsLinx] Combo type validation fix applied.
+[2026-08-14 15:16:52.290] WanVideoWrapper WARNING: FantasyPortrait nodes not available: No module named 'onnx'
+[2026-08-14 15:16:52.323] comfyuiWATCHER progress relay installed (broadcasting watcher.* events)
+[2026-08-14 15:16:52.323] comfyuiWATCHER relay: batch-size reporting installed
+[2026-08-14 15:16:53.379] ------------------------------------------
+[2026-08-14 15:16:53.379] Comfyroll Studio v1.76 :  175 Nodes Loaded
+[2026-08-14 15:16:53.379] ------------------------------------------
+[2026-08-14 15:16:53.379] ** For changes, please see patch notes at https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes/blob/main/Patch_Notes.md
+[2026-08-14 15:16:53.379] ** For help, please see the wiki at https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes/wiki
+[2026-08-14 15:16:53.379] ------------------------------------------
+[2026-08-14 15:16:54.047] 
+[2026-08-14 15:16:54.047] Initializing ControlAltAI Nodes
+[2026-08-14 15:16:56.296] EA_LMStudio: Cannot connect to LM Studio at http://127.0.0.1:1234. Ensure LM Studio is running with server enabled.
+[2026-08-14 15:16:56.296] EA_LMStudio startup: Cannot connect to LM Studio at http://127.0.0.1:1234. Ensure LM Studio is running with server enabled.
+[2026-08-14 15:16:56.296] EA_LMStudio: Models will need to be entered manually or refreshed later
+[2026-08-14 15:16:56.474] Using pytorch attention
+[2026-08-14 15:16:56.494] (RES4LYF) Init
+[2026-08-14 15:16:56.495] (RES4LYF) Importing beta samplers.
+[2026-08-14 15:16:56.529] (RES4LYF) Importing legacy samplers.
+[2026-08-14 15:16:56.565] 
+[2026-08-14 15:16:56.566] [rgthree-comfy] Loaded 48 exciting nodes. 🎉
+[2026-08-14 15:16:56.566] 
+[2026-08-14 15:16:56.566] [rgthree-comfy] ComfyUI's new Node 2.0 rendering may be incompatible with some rgthree-comfy nodes and features, breaking some rendering as well as losing the ability to access a node's properties (a vital part of many nodes). It also appears to run MUCH more slowly spiking CPU usage and causing jankiness and unresponsiveness, especially with large workflows. Personally I am not planning to use the new Nodes 2.0 and, unfortunately, am not able to invest the time to investigate and overhaul rgthree-comfy where needed. If you have issues when Nodes 2.0 is enabled, I'd urge you to switch it off as well and join me in hoping ComfyUI is not planning to deprecate the existing, stable canvas rendering all together.
+[2026-08-14 15:16:56.566] 
+[2026-08-14 15:16:56.574] ⚡ SeedVR2 optimizations check: SageAttention ✅ | Flash Attention ❌ | Triton ✅
+[2026-08-14 15:16:56.574] 💡 Optional: pip install flash-attn
+[2026-08-14 15:16:56.574] 🔧 Conv3d workaround active: PyTorch 2.13.0, cuDNN 92000 (fixing VAE 3x memory bug)
+[2026-08-14 15:16:56.802] 📊 Initial CUDA memory: 14.60GB free / 15.92GB total
+[2026-08-14 15:16:58.636] WAS Node Suite: OpenCV Python FFMPEG support is enabled
+[2026-08-14 15:16:58.636] WAS Node Suite Warning: `ffmpeg_bin_path` is not set in `D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\was-ns\was_suite_config.json` config file. Will attempt to use system ffmpeg binaries if available.
+[2026-08-14 15:16:59.536] WAS Node Suite: Finished. Loaded 220 nodes successfully.
+[2026-08-14 15:16:59.537] 
+	"Art is not a thing; it is a way." - Elbert Hubbard
+[2026-08-14 15:16:59.537] 
+[2026-08-14 15:16:59.542] 
+Import times for custom nodes:
+[2026-08-14 15:16:59.542]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\websocket_image_save.py
+[2026-08-14 15:16:59.542]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-watcher-relay
+[2026-08-14 15:16:59.542]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui_memory_cleanup
+[2026-08-14 15:16:59.542]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-int-and-float
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-mxtoolkit
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyLiterals
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-inpaint-cropandstitch
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-MiniMax-H3-Turbo
+[2026-08-14 15:16:59.543]    0.0 seconds (IMPORT FAILED): D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Z-Engineer
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-AVS-SSD-ReadAhead
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-GGUF
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui_essentials
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-VFI
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\Anomalous_Model_Browser
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Flux2Klein-Enhancer
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-INT8-Fast
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Flux2-INT8
+[2026-08-14 15:16:59.543]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\derfuu_comfyui_moddednodes
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-vslinx-nodes
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-image-saver
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\controlaltai-nodes
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-frame-interpolation
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-custom-scripts
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-SolAttn_triton
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\rgthree-comfy
+[2026-08-14 15:16:59.544]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Jakkanna
+[2026-08-14 15:16:59.544]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-kjnodes
+[2026-08-14 15:16:59.544]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Stimma
+[2026-08-14 15:16:59.545]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-multigpu
+[2026-08-14 15:16:59.545]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\cg-use-everywhere
+[2026-08-14 15:16:59.545]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-LTXVideo
+[2026-08-14 15:16:59.545]    0.2 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\RES4LYF
+[2026-08-14 15:16:59.545]    0.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Crystools
+[2026-08-14 15:16:59.545]    0.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\seedvr2_videoupscaler
+[2026-08-14 15:16:59.545]    0.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-MemXray
+[2026-08-14 15:16:59.545]    0.6 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-impact-pack
+[2026-08-14 15:16:59.545]    0.6 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-WanVideoWrapper
+[2026-08-14 15:16:59.545]    0.7 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui_nvidia_rtx_nodes
+[2026-08-14 15:16:59.545]    1.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI_Comfyroll_CustomNodes
+[2026-08-14 15:16:59.545]    1.4 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-videohelpersuite
+[2026-08-14 15:16:59.545]    1.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-mobile-frontend
+[2026-08-14 15:16:59.546]    1.7 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-manager
+[2026-08-14 15:16:59.546]    2.2 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\EA_LMStudio
+[2026-08-14 15:16:59.546]    2.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\was-ns
+[2026-08-14 15:16:59.546]    4.8 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-easy-use
+[2026-08-14 15:16:59.546] 
+[2026-08-14 15:16:59.561] Context impl SQLiteImpl.
+[2026-08-14 15:16:59.561] Will assume non-transactional DDL.
+[2026-08-14 15:16:59.738] Using RAM pressure cache.
+[2026-08-14 15:16:59.739] Starting server
+
+[2026-08-14 15:16:59.740] [Mobile Push] detection spike active; seeded 0 prior history entries (polling every 1.0s)
+[2026-08-14 15:16:59.742] Auto-detected ComfyUI address: 127.0.0.1:8188
+[2026-08-14 15:16:59.742] ComfyUI client initialized with 1 instance(s): ['127.0.0.1:8188']
+[2026-08-14 15:16:59.742] Starting provider: ComfyUI Workflows
+[2026-08-14 15:16:59.742] STP transport ready, waiting for client on /stp-v1...
+[2026-08-14 15:16:59.743] To see the GUI go to: http://0.0.0.0:8188
+[2026-08-14 15:17:04.489] [DEPRECATION WARNING] Detected import of deprecated legacy API: /scripts/ui.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 15:17:04.503] [DEPRECATION WARNING] Detected import of deprecated legacy API: /scripts/ui/components/buttonGroup.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 15:17:04.511] [DEPRECATION WARNING] Detected import of deprecated legacy API: /extensions/core/clipspace.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 15:17:04.514] [DEPRECATION WARNING] Detected import of deprecated legacy API: /extensions/core/groupNode.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 15:17:04.518] [DEPRECATION WARNING] Detected import of deprecated legacy API: /extensions/core/widgetInputs.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 15:17:04.544] [vsLinx] Combo type fix enabled via settings.
+[2026-08-14 15:17:07.853] [vsLinx] Combo type fix enabled via settings.
+[2026-08-14 15:17:07.855] [DEPRECATION WARNING] Detected import of deprecated legacy API: /scripts/ui/components/button.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 15:18:40.706] FETCH ComfyRegistry Data [DONE]
+[2026-08-14 15:18:41.087] [ComfyUI-Manager] default cache updated: https://api.comfy.org/nodes
+[2026-08-14 15:18:41.160] FETCH DATA from: https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main/custom-node-list.json [DONE]
+[2026-08-14 15:18:41.491] [ComfyUI-Manager] All startup tasks have been completed.
+[2026-08-14 15:30:17.105] got prompt
+[2026-08-14 15:30:17.287] VAE load device: cuda:0, offload device: cpu, dtype: torch.float32
+[2026-08-14 15:30:17.299] [Sequential ReadAhead] queued minimax_h3_video_vae_fp16.safetensors: file 4.85 GiB, warm budget 4.85 GiB, RAM reserve 5.43 GiB (avail 43.67 GiB)
+[2026-08-14 15:30:17.299] [Sequential ReadAhead] start isolated minimax_h3_video_vae_fp16.safetensors (budget 4.85/4.85 GiB)
+[2026-08-14 15:30:17.586] VAE load device: cuda:0, offload device: cpu, dtype: torch.float16
+[2026-08-14 15:30:17.785] [Sequential ReadAhead] queued qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors: file 14.61 GiB, warm budget 14.61 GiB, RAM reserve 10.00 GiB (avail 43.55 GiB)
+[2026-08-14 15:30:17.888] [Sequential ReadAhead] stop isolated minimax_h3_video_vae_fp16.safetensors after 0.59s; newer file requested
+[2026-08-14 15:30:17.889] [Sequential ReadAhead] start isolated qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors (budget 14.61/14.61 GiB)
+[2026-08-14 15:30:17.925] Found quantization metadata version 1
+[2026-08-14 15:30:17.927] [MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:0 (current_text_encoder_device=cuda:0)
+[2026-08-14 15:30:17.927] Using MixedPrecisionOps for text encoder
+[2026-08-14 15:30:27.613] CLIP/text encoder model load device: cuda:0, offload device: cpu, current: cpu, dtype: torch.float16
+[2026-08-14 15:30:27.678] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 15:30:28.646] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 15:30:32.578] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 15:30:32.722] Requested to load MiniMaxH3TEModel_
+[2026-08-14 15:30:32.900] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 15:30:53.096] [Sequential ReadAhead] queued minimax_h3_fl2va_pruned_int8_convrot.safetensors: file 19.53 GiB, warm budget 13.00 GiB, RAM reserve 10.00 GiB (avail 23.00 GiB)
+[2026-08-14 15:30:53.132] [Sequential ReadAhead] stop isolated qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors after 35.24s; newer file requested
+[2026-08-14 15:30:53.136] [Sequential ReadAhead] start isolated minimax_h3_fl2va_pruned_int8_convrot.safetensors (budget 13.00/19.53 GiB)
+[2026-08-14 15:30:53.147] Found quantization metadata version 1
+[2026-08-14 15:30:53.147] Detected mixed precision quantization
+[2026-08-14 15:30:53.148] Using mixed precision operations
+[2026-08-14 15:30:53.148] Native ops: nvfp4, int8_tensorwise, convrot_w4a4, float8_e5m2, mxfp8, float8_e4m3fn, asym_w4a8_int8 
+[2026-08-14 15:30:53.174] model weight dtype torch.bfloat16, manual cast: torch.bfloat16
+[2026-08-14 15:30:53.179] model_type FLOW_AV
+[2026-08-14 15:30:54.419] Using sage attention mode: auto
+[2026-08-14 15:30:54.436] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 15:30:54.542] Requested to load MiniMaxH3
+[2026-08-14 15:30:54.544] 0 models unloaded.
+[2026-08-14 15:30:54.733] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 15:30:57.276] [Sequential ReadAhead] stop isolated minimax_h3_fl2va_pruned_int8_convrot.safetensors after 4.14s; sampler starting
+[2026-08-14 15:38:41.432] 100%|██████████| 30/30 [07:10<00:00, 14.30s/it]100%|██████████| 30/30 [07:10<00:00, 14.36s/it]
+[2026-08-14 15:38:47.360] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 15:38:47.568] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 15:38:48.807] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 15:38:48.879] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 15:39:24.870] Prompt executed in 547.75 seconds
+[2026-08-14 15:39:26.906] [Mobile Push] completion detected prompt_id=33da2e66-e7e0-4dc5-9776-25f77394cd45 status=success outputs=1
+[2026-08-14 15:49:06.542] got prompt
+[2026-08-14 15:49:06.778] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 15:49:08.069] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 15:49:08.223] Requested to load MiniMaxH3TEModel_
+[2026-08-14 15:49:08.372] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 15:49:37.733] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 15:49:37.760] Requested to load MiniMaxH3
+[2026-08-14 15:49:37.764] 0 models unloaded.
+[2026-08-14 15:49:37.866] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 15:55:26.708] 100%|██████████| 30/30 [05:08<00:00, 10.28s/it]100%|██████████| 30/30 [05:08<00:00, 10.27s/it]
+[2026-08-14 15:55:33.531] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 15:55:33.690] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 15:55:34.957] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 15:55:35.019] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 15:56:05.413] Prompt executed in 418.85 seconds
+[2026-08-14 15:56:07.311] [Mobile Push] completion detected prompt_id=a8a595ec-1b90-4f14-9b9d-35cdd1a0effa status=success outputs=1
+[2026-08-14 16:11:30.967] got prompt
+[2026-08-14 16:11:31.301] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:11:32.599] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:11:32.963] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:11:33.152] Requested to load MiniMaxH3TEModel_
+[2026-08-14 16:11:33.332] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 16:12:10.977] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 16:12:11.067] Requested to load MiniMaxH3
+[2026-08-14 16:12:11.073] 0 models unloaded.
+[2026-08-14 16:12:11.194] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 16:18:46.282] 100%|██████████| 30/30 [05:34<00:00, 10.66s/it]100%|██████████| 30/30 [05:34<00:00, 11.14s/it]
+[2026-08-14 16:18:55.410] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 16:18:55.646] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 16:18:56.862] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 16:18:56.945] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:19:27.851] Prompt executed in 476.86 seconds
+[2026-08-14 16:19:30.048] [Mobile Push] completion detected prompt_id=8aebcc8d-33fd-433c-a31c-04c10e79bf91 status=success outputs=1
+[2026-08-14 16:21:01.077] got prompt
+[2026-08-14 16:21:02.644] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:21:06.185] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:21:06.500] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:21:06.675] Requested to load MiniMaxH3TEModel_
+[2026-08-14 16:21:06.863] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 16:21:46.232] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 16:21:46.266] Requested to load MiniMaxH3
+[2026-08-14 16:21:46.384] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 16:28:06.472] 100%|██████████| 30/30 [05:46<00:00, 11.03s/it]100%|██████████| 30/30 [05:46<00:00, 11.53s/it]
+[2026-08-14 16:28:11.556] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 16:28:11.726] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 16:28:12.766] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 16:28:12.844] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:28:45.076] Prompt executed in 463.98 seconds
+[2026-08-14 16:28:47.109] [Mobile Push] completion detected prompt_id=b06dbc18-9814-4fee-b4c9-2997cd81b52f status=success outputs=1
+[2026-08-14 16:37:07.156] got prompt
+[2026-08-14 16:37:07.506] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:37:08.704] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:37:09.062] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:37:09.262] Requested to load MiniMaxH3TEModel_
+[2026-08-14 16:37:09.458] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 16:37:46.377] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 16:37:46.415] Requested to load MiniMaxH3
+[2026-08-14 16:37:46.534] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 16:44:06.694] 100%|██████████| 30/30 [05:38<00:00, 11.15s/it]100%|██████████| 30/30 [05:38<00:00, 11.28s/it]
+[2026-08-14 16:44:15.155] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 16:44:15.349] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 16:44:16.408] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 16:44:16.487] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:44:53.114] Prompt executed in 465.92 seconds
+[2026-08-14 16:44:54.447] send error: Cannot write to closing transport
+[2026-08-14 16:44:55.310] [Mobile Push] completion detected prompt_id=c833a497-a297-45da-92ff-2806f774133c status=success outputs=1
+[2026-08-14 16:52:53.020] got prompt
+[2026-08-14 16:52:54.071] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:52:55.363] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:52:55.666] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 16:52:56.040] Requested to load MiniMaxH3TEModel_
+[2026-08-14 16:52:56.236] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 16:53:31.184] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 16:53:31.246] Requested to load MiniMaxH3
+[2026-08-14 16:53:31.250] 0 models unloaded.
+[2026-08-14 16:53:31.367] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 16:53:36.412] got prompt
+[2026-08-14 16:53:38.033] got prompt
+[2026-08-14 16:53:39.782] got prompt
+[2026-08-14 17:05:21.639] 100%|██████████| 30/30 [11:20<00:00, 22.57s/it]100%|██████████| 30/30 [11:20<00:00, 22.67s/it]
+[2026-08-14 17:05:30.243] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 17:05:30.477] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 17:05:31.655] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 17:05:31.730] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 17:06:13.782] Prompt executed in 00:13:20
+[2026-08-14 17:06:14.672] Prompt executed in 0.08 seconds
+[2026-08-14 17:06:14.694] Prompt executed in 0.02 seconds
+[2026-08-14 17:06:14.710] [Mobile Push] completion detected prompt_id=d4463566-8648-4ac4-b3d0-57d5b3b32ee6 status=success outputs=1
+[2026-08-14 17:06:14.711] [Mobile Push] completion detected prompt_id=12fd437d-5523-4b79-b911-5462d3485346 status=success outputs=1
+[2026-08-14 17:06:14.712] [Mobile Push] completion detected prompt_id=42a03e4c-02d2-4e16-9032-87c8fba8e623 status=success outputs=1
+[2026-08-14 17:06:14.735] Prompt executed in 0.04 seconds
+[2026-08-14 17:06:16.503] [Mobile Push] completion detected prompt_id=d2504628-c083-4353-8f54-0d0989b66ef3 status=success outputs=1
+[2026-08-14 19:03:13.685] Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+[2026-08-14 19:03:16.148] Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+[2026-08-14 19:06:30.775] got prompt
+[2026-08-14 19:06:31.133] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:06:32.395] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:06:32.668] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:06:32.982] Requested to load MiniMaxH3TEModel_
+[2026-08-14 19:06:33.142] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 19:06:43.822] Interrupting prompt a10ea4b6-a6b8-48c6-94d2-5999255d50d3
+[2026-08-14 19:06:43.971] Processing interrupted
+[2026-08-14 19:06:43.981] Prompt executed in 13.19 seconds
+[2026-08-14 19:06:44.841] [Mobile Push] completion detected prompt_id=a10ea4b6-a6b8-48c6-94d2-5999255d50d3 status=error outputs=0
+[2026-08-14 19:07:25.722] got prompt
+[2026-08-14 19:07:25.902] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:07:26.406] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:07:26.712] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:07:27.183] Model MiniMaxH3TEModel_ prepared for dynamic VRAM loading. 14956MB Staged. 0 patches attached. Force pre-loaded 410 weights: 4572 KB.
+[2026-08-14 19:07:53.053] get_previewer: no previewer for MiniMaxH3AV
+[2026-08-14 19:07:53.102] Requested to load MiniMaxH3
+[2026-08-14 19:07:53.109] 0 models unloaded.
+[2026-08-14 19:07:53.208] Model MiniMaxH3 prepared for dynamic VRAM loading. 19995MB Staged. 0 patches attached. Force pre-loaded 210 weights: 1175 KB.
+[2026-08-14 19:19:40.250] 100%|██████████| 30/30 [11:18<00:00, 22.59s/it]100%|██████████| 30/30 [11:18<00:00, 22.60s/it]
+[2026-08-14 19:19:48.923] Requested to load MiniMaxH3AudioVAE
+[2026-08-14 19:19:49.115] Model MiniMaxH3AudioVAE prepared for dynamic VRAM loading. 576MB Staged. 0 patches attached. Force pre-loaded 401 weights: 539 KB.
+[2026-08-14 19:19:50.055] Requested to load MiniMaxH3VideoVAE
+[2026-08-14 19:19:50.120] Model MiniMaxH3VideoVAE prepared for dynamic VRAM loading. 4965MB Staged. 0 patches attached. Force pre-loaded 128 weights: 348 KB.
+[2026-08-14 19:20:32.558] Prompt executed in 00:13:06
+[2026-08-14 19:20:34.580] [Mobile Push] completion detected prompt_id=192a1c2c-c087-4971-8e1b-7b21be2a0148 status=success outputs=1

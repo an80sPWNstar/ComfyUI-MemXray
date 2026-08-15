@@ -1,0 +1,684 @@
+## ComfyUI-Manager: installing dependencies done.
+[2026-08-14 08:40:01.306] ** ComfyUI startup time: 2026-08-14 08:40:01.306
+[2026-08-14 08:40:01.306] ** Platform: Windows
+[2026-08-14 08:40:01.306] ** Python version: 3.13.12 (main, Feb 12 2026, 00:38:53) [MSC v.1944 64 bit (AMD64)]
+[2026-08-14 08:40:01.306] ** Python executable: D:\ComfyUI_Installs\New Main\ComfyUI\.venv\Scripts\python.exe
+[2026-08-14 08:40:01.306] ** ComfyUI Path: D:\ComfyUI_Installs\New Main\ComfyUI
+[2026-08-14 08:40:01.306] ** ComfyUI Base Folder Path: D:\ComfyUI_Installs\New Main\ComfyUI
+[2026-08-14 08:40:01.306] ** User directory: D:\ComfyUI_Installs\New Main\ComfyUI\user
+[2026-08-14 08:40:01.306] ** ComfyUI-Manager config path: D:\ComfyUI_Installs\New Main\ComfyUI\user\__manager\config.ini
+[2026-08-14 08:40:01.307] ** Log path: D:\ComfyUI_Installs\New Main\ComfyUI\user\comfyui.log
+
+Prestartup times for custom nodes:
+[2026-08-14 08:40:04.029]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\rgthree-comfy
+[2026-08-14 08:40:04.029]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-easy-use
+[2026-08-14 08:40:04.029]   10.9 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-manager
+[2026-08-14 08:40:04.029] 
+[2026-08-14 08:40:15.804] D:\ComfyUI_Installs\New Main\ComfyUI\.venv\Lib\site-packages\torch\cuda\__init__.py:64: FutureWarning: The pynvml package is deprecated. Please install nvidia-ml-py instead. If you did not install pynvml directly, please report this to the maintainers of the package that installed pynvml for you.
+  import pynvml  # type: ignore[import]
+[2026-08-14 08:40:20.589] Found comfy_kitchen backend hip: {'available': False, 'disabled': False, 'unavailable_reason': 'PyTorch ROCm/HIP runtime not available', 'capabilities': []}
+[2026-08-14 08:40:20.589] Found comfy_kitchen backend triton: {'available': True, 'disabled': True, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'int8_linear', 'na3d', 'quantize_and_rotate_rowwise', 'quantize_int8_rowwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'w4a8_int8_linear']}
+[2026-08-14 08:40:20.590] Found comfy_kitchen backend eager: {'available': True, 'disabled': False, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'convrot_w4a4_linear', 'dequantize_convrot_w4a4_weight', 'dequantize_int8_convrot_weight', 'dequantize_int8_convrot_weight_dtype', 'dequantize_int8_embedding', 'dequantize_int8_simple', 'dequantize_int8_simple_dtype', 'dequantize_mxfp8', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'dequantize_w4a8_int8_weight', 'gemv_awq_w4a16', 'int8_linear', 'na3d', 'prepare_int4_weight_for_int8_linear', 'quantize_and_rotate_rowwise', 'quantize_convrot_w4a4_weight', 'quantize_int8_convrot_weight', 'quantize_int8_rowwise', 'quantize_int8_tensorwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'quantize_svdquant_w4a4', 'quantize_w4a8_int8_weight', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'rotate_int8_convrot_weight', 'scaled_mm_mxfp8', 'scaled_mm_nvfp4', 'scaled_mm_svdquant_w4a4', 'stochastic_rounding_fp8', 'w4a8_int8_linear']}
+[2026-08-14 08:40:20.590] Found comfy_kitchen backend cuda: {'available': True, 'disabled': False, 'unavailable_reason': None, 'capabilities': ['adaln', 'apply_rope', 'apply_rope1', 'apply_rope1_', 'apply_rope_', 'apply_rope_split_half', 'apply_rope_split_half1', 'apply_rope_split_half1_', 'apply_rope_split_half_', 'convrot_w4a4_linear', 'dequantize_convrot_w4a4_weight', 'dequantize_int8_convrot_weight', 'dequantize_int8_convrot_weight_dtype', 'dequantize_int8_simple', 'dequantize_int8_simple_dtype', 'dequantize_nvfp4', 'dequantize_per_tensor_fp8', 'dequantize_w4a8_int8_weight', 'gemv_awq_w4a16', 'int8_linear', 'na3d', 'prepare_int4_weight_for_int8_linear', 'quantize_and_rotate_rowwise', 'quantize_convrot_w4a4_weight', 'quantize_int8_convrot_weight', 'quantize_int8_rowwise', 'quantize_int8_tensorwise', 'quantize_mxfp8', 'quantize_nvfp4', 'quantize_per_tensor_fp8', 'quantize_svdquant_w4a4', 'quantize_w4a8_int8_weight', 'rms_adaln', 'rms_rope', 'rms_rope1', 'rms_rope1_', 'rms_rope_', 'rms_rope_split_half', 'rms_rope_split_half1', 'rms_rope_split_half1_', 'rms_rope_split_half_', 'rotate_int8_convrot_weight', 'scaled_mm_nvfp4', 'scaled_mm_svdquant_w4a4', 'stochastic_rounding_fp8', 'w4a8_int8_linear']}
+[2026-08-14 08:40:20.630] Checkpoint files will always be loaded safely.
+[2026-08-14 08:40:20.858] Total VRAM 16303 MB, total RAM 65409 MB
+[2026-08-14 08:40:20.858] pytorch version: 2.13.0+cu130
+[2026-08-14 08:40:20.859] Enabled fp16 accumulation.
+[2026-08-14 08:40:20.859] Set vram state to: NORMAL_VRAM
+[2026-08-14 08:40:20.859] Device: cuda:0 NVIDIA GeForce RTX 5070 Ti : cudaMallocAsync
+[2026-08-14 08:40:20.900] Using async weight offloading with 2 streams
+[2026-08-14 08:40:20.900] Enabled pinned memory 26163.0
+[2026-08-14 08:40:21.320] Using pytorch attention
+[2026-08-14 08:40:58.115] Python version: 3.13.12 (main, Feb 12 2026, 00:38:53) [MSC v.1944 64 bit (AMD64)]
+[2026-08-14 08:40:58.116] ComfyUI version: 0.33.1
+[2026-08-14 08:40:58.117] comfy-aimdo version: 0.4.13
+[2026-08-14 08:40:58.118] comfy-kitchen version: 0.2.31
+[2026-08-14 08:40:58.118] Dynamic vram disabled with argument. If you have any issues with dynamic vram enabled please give us a detailed reports as this argument will be removed soon. If you use gguf we recommend keeping dynamic vram enabled and using native ComfyUI model formats instead. ComfyUI native formats like fp8 will be faster even if they are larger than your memory.
+[2026-08-14 08:40:58.138] comfyui-frontend-package version: 1.48.7
+[2026-08-14 08:40:58.138] comfyui-workflow-templates version: 0.11.41
+[2026-08-14 08:40:58.138] comfyui-embedded-docs version: 0.5.9
+[2026-08-14 08:40:58.138] comfy-kitchen version: 0.2.31
+[2026-08-14 08:40:58.138] comfy-aimdo version: 0.4.13
+[2026-08-14 08:40:58.141] [Prompt Server] web root: D:\ComfyUI_Installs\New Main\ComfyUI\.venv\Lib\site-packages\comfyui_frontend_package\static
+[2026-08-14 08:40:58.143] Asset seeder disabled
+[2026-08-14 08:40:59.620] No OpenGL_accelerate module loaded: No module named 'OpenGL_accelerate'
+[2026-08-14 08:41:01.420] Web extensions folder found at D:\ComfyUI_Installs\New Main\ComfyUI\web\extensions\ComfyLiterals
+[2026-08-14 08:41:01.443] [Sequential ReadAhead] Default/non-classic ComfyUI cache detected. Heavy multi-model stress testing on ComfyUI 0.31.1 was unstable with the RAM-pressure cache but stable with --cache-classic. ReadAhead remains enabled; --cache-classic is recommended until this ComfyUI cache path is validated on your version.
+[2026-08-14 08:41:01.443] [Sequential ReadAhead] Installed v0.9.0 (ComfyUI 0.33.1, CUDA NVIDIA GeForce RTX 5070 Ti): isolated cached read-ahead=True, adaptive-budget=True, sampler-stop=True, chunk=32 MiB, RAM floor 3.5/2.5 GiB, cache=default, async-streams=2, unload/model-memory hooks=none
+[2026-08-14 08:41:01.612] [Crystools [0;32mINFO[0m] Crystools version: 1.27.4
+[2026-08-14 08:41:01.670] [Crystools [0;32mINFO[0m] Platform release: 11
+[2026-08-14 08:41:01.671] [Crystools [0;32mINFO[0m] JETSON: Not detected.
+[2026-08-14 08:41:01.672] [Crystools [0;32mINFO[0m] CPU: AMD Ryzen Threadripper 3960X 24-Core Processor - Arch: AMD64 - OS: Windows 11
+[2026-08-14 08:41:01.685] [Crystools [0;32mINFO[0m] pynvml (NVIDIA) initialized.
+[2026-08-14 08:41:01.685] [Crystools [0;32mINFO[0m] GPU/s:
+[2026-08-14 08:41:01.697] [Crystools [0;32mINFO[0m] 0) NVIDIA GeForce RTX 5070 Ti
+[2026-08-14 08:41:01.712] [Crystools [0;32mINFO[0m] 1) NVIDIA GeForce RTX 5060 Ti
+[2026-08-14 08:41:01.728] [Crystools [0;32mINFO[0m] 2) NVIDIA GeForce RTX 3090
+[2026-08-14 08:41:01.728] [Crystools [0;32mINFO[0m] NVIDIA Driver: 610.88
+[2026-08-14 08:41:06.042] [ComfyUI-Easy-Use] server: v1.3.6 Loaded
+[2026-08-14 08:41:06.043] [ComfyUI-Easy-Use] web root: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-easy-use\web_version/v2 Loaded
+[2026-08-14 08:41:06.137] ComfyUI-GGUF: Allowing full torch compile
+[2026-08-14 08:41:06.158] ### Loading: ComfyUI-Impact-Pack (V8.28.3)
+[2026-08-14 08:41:06.573] [Impact Pack] Wildcard total size (0.00 MB) is within cache limit (50.00 MB). Using full cache mode.
+[2026-08-14 08:41:06.597] [Impact Pack] Wildcards loading done.
+[2026-08-14 08:41:06.858] ### Loading: ComfyUI-Manager (V3.41)
+[2026-08-14 08:41:06.859] [ComfyUI-Manager] network_mode: public
+[2026-08-14 08:41:06.859] [ComfyUI-Manager] ComfyUI per-queue preview override detected (PR #11261). Manager's preview method feature is disabled. Use ComfyUI's --preview-method CLI option or 'Settings > Execution > Live preview method'.
+[2026-08-14 08:41:07.105] ### ComfyUI Revision: 5768 [72865f4f] *DETACHED | Released on '2026-08-13'
+[2026-08-14 08:41:08.524] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/alter-list.json
+[2026-08-14 08:41:08.568] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/model-list.json
+[2026-08-14 08:41:08.633] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/github-stats.json
+[2026-08-14 08:41:08.797] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
+[2026-08-14 08:41:08.911] [ComfyUI-Manager] default cache updated: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/extension-node-map.json
+[2026-08-14 08:41:08.924] [MemXray] sampling pid 39648 (python) via Process V2
+[2026-08-14 08:41:08.925] [MemXray] watching pid 39648, PDH counters available
+[2026-08-14 08:41:08.961] [Mobile Frontend] Loading custom node...
+[2026-08-14 08:41:10.280] [Mobile Frontend] Mobile UI enabled at: /mobile
+[2026-08-14 08:41:10.285] [MultiGPU Core Patching] Patching mm.soft_empty_cache for Comprehensive Memory Management (VRAM + CPU + Store Pruning)
+[2026-08-14 08:41:10.400] [MultiGPU Core Patching] Patching mm.get_torch_device, mm.text_encoder_device, mm.unet_offload_device
+[2026-08-14 08:41:10.401] [MultiGPU DEBUG] Initial current_device: cuda:0
+[2026-08-14 08:41:10.401] [MultiGPU DEBUG] Initial current_text_encoder_device: cuda:0
+[2026-08-14 08:41:10.402] [MultiGPU DEBUG] Initial current_unet_offload_device: cpu
+[2026-08-14 08:41:10.402] [MultiGPU] Patched comfy.model_management.current_stream to honor CUDA device arguments
+[2026-08-14 08:41:10.402] [MultiGPU] Patched comfy.sample.sample with runtime device guard
+[2026-08-14 08:41:10.403] [MultiGPU] Patched comfy.sample.sample_custom with runtime device guard
+[2026-08-14 08:41:10.404] [MultiGPU] Applied comfy_kitchen CUDA DLPack device guard patch (P2P-aware)
+[2026-08-14 08:41:10.405] [MultiGPU] DynamicVRAM not enabled; skipping multi-device aimdo initialization
+[2026-08-14 08:41:10.410] [MultiGPU] Initiating custom_node Registration. . .
+[2026-08-14 08:41:10.411] -----------------------------------------------
+[2026-08-14 08:41:10.411] custom_node                   Found     Nodes
+[2026-08-14 08:41:10.411] -----------------------------------------------
+[2026-08-14 08:41:10.418] ComfyUI-LTXVideo                  Y         1
+[2026-08-14 08:41:10.418] ComfyUI-Florence2                 N         0
+[2026-08-14 08:41:10.419] ComfyUI_bitsandbytes_NF4          N         0
+[2026-08-14 08:41:10.419] x-flux-comfyui                    N         0
+[2026-08-14 08:41:10.419] ComfyUI-MMAudio                   N         0
+[2026-08-14 08:41:10.420] ComfyUI-GGUF                      Y        18
+[2026-08-14 08:41:10.420] PuLID_ComfyUI                     N         0
+[2026-08-14 08:41:10.421] ComfyUI-WanVideoWrapper           Y        20
+[2026-08-14 08:41:10.421] -----------------------------------------------
+[2026-08-14 08:41:10.421] [MultiGPU] Registration complete. Final mappings: CheckpointLoaderAdvancedMultiGPU, CheckpointLoaderAdvancedDisTorch2MultiGPU, DeviceSelectorMultiGPU, UNetLoaderLP, UNETLoaderMultiGPU, VAELoaderMultiGPU, CLIPLoaderMultiGPU, DualCLIPLoaderMultiGPU, TripleCLIPLoaderMultiGPU, QuadrupleCLIPLoaderMultiGPU, CLIPVisionLoaderMultiGPU, CheckpointLoaderSimpleMultiGPU, ControlNetLoaderMultiGPU, DiffusersLoaderMultiGPU, DiffControlNetLoaderMultiGPU, UNETLoaderDisTorch2MultiGPU, VAELoaderDisTorch2MultiGPU, CLIPLoaderDisTorch2MultiGPU, DualCLIPLoaderDisTorch2MultiGPU, TripleCLIPLoaderDisTorch2MultiGPU, QuadrupleCLIPLoaderDisTorch2MultiGPU, CLIPVisionLoaderDisTorch2MultiGPU, CheckpointLoaderSimpleDisTorch2MultiGPU, ControlNetLoaderDisTorch2MultiGPU, DiffusersLoaderDisTorch2MultiGPU, DiffControlNetLoaderDisTorch2MultiGPU, LTXVLoaderMultiGPU, UnetLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFAdvancedDisTorchMultiGPU, CLIPLoaderGGUFDisTorchMultiGPU, DualCLIPLoaderGGUFDisTorchMultiGPU, TripleCLIPLoaderGGUFDisTorchMultiGPU, QuadrupleCLIPLoaderGGUFDisTorchMultiGPU, UnetLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFAdvancedDisTorch2MultiGPU, CLIPLoaderGGUFDisTorch2MultiGPU, DualCLIPLoaderGGUFDisTorch2MultiGPU, TripleCLIPLoaderGGUFDisTorch2MultiGPU, QuadrupleCLIPLoaderGGUFDisTorch2MultiGPU, UnetLoaderGGUFMultiGPU, UnetLoaderGGUFAdvancedMultiGPU, CLIPLoaderGGUFMultiGPU, DualCLIPLoaderGGUFMultiGPU, TripleCLIPLoaderGGUFMultiGPU, QuadrupleCLIPLoaderGGUFMultiGPU, LoadWanVideoT5TextEncoderMultiGPU, WanVideoTextEncodeMultiGPU, WanVideoTextEncodeCachedMultiGPU, WanVideoTextEncodeSingleMultiGPU, WanVideoVAELoaderMultiGPU, WanVideoTinyVAELoaderMultiGPU, WanVideoBlockSwapMultiGPU, WanVideoImageToVideoEncodeMultiGPU, WanVideoDecodeMultiGPU, WanVideoModelLoaderMultiGPU, WanVideoSamplerMultiGPU, WanVideoVACEEncodeMultiGPU, WanVideoEncodeMultiGPU, LoadWanVideoClipTextEncoderMultiGPU, WanVideoClipVisionEncodeMultiGPU, WanVideoControlnetLoaderMultiGPU, FantasyTalkingModelLoaderMultiGPU, Wav2VecModelLoaderMultiGPU, WanVideoUni3C_ControlnetLoaderMultiGPU, DownloadAndLoadWav2VecModelMultiGPU
+[2026-08-14 08:41:10.546] Installed STP CORS-bypass middleware ahead of ComfyUI's chain
+[2026-08-14 08:41:10.546] Increased ComfyUI body size limit: 104857600 -> 4294967296 bytes
+[2026-08-14 08:41:10.565] No config file at D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Stimma\config.yaml, using defaults
+[2026-08-14 08:41:10.566] Installed animated video preview wrapper
+[2026-08-14 08:41:11.418] Added STP WebSocket route: /stp-v1
+[2026-08-14 08:41:11.422] Cleaned up stale asset dir: C:\Users\Bryan\AppData\Local\Temp\stimma-provider-assets-5jicja2g
+[2026-08-14 08:41:11.428] Local asset server using: C:\Users\Bryan\AppData\Local\Temp\stimma-provider-assets-9a1ul1lx
+[2026-08-14 08:41:11.428] STP routes added to ComfyUI server
+[2026-08-14 08:41:11.464] Traceback (most recent call last):
+  File "D:\ComfyUI_Installs\New Main\ComfyUI\nodes.py", line 2263, in load_custom_node
+    module_spec.loader.exec_module(module)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^
+  File "<frozen importlib._bootstrap_external>", line 1023, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache\__init__.py", line 1, in <module>
+    from .nodes import NODE_CLASS_MAPPINGS as NODES_CLASS, NODE_DISPLAY_NAME_MAPPINGS as NODES_DISPLAY
+  File "D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache\nodes.py", line 12, in <module>
+    from comfy.ldm.lightricks.model import precompute_freqs_cis
+ImportError: cannot import name 'precompute_freqs_cis' from 'comfy.ldm.lightricks.model' (D:\ComfyUI_Installs\New Main\ComfyUI\comfy\ldm\lightricks\model.py)
+
+[2026-08-14 08:41:11.464] Cannot import D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache module for custom nodes: cannot import name 'precompute_freqs_cis' from 'comfy.ldm.lightricks.model' (D:\ComfyUI_Installs\New Main\ComfyUI\comfy\ldm\lightricks\model.py)
+[2026-08-14 08:41:14.753] [vsLinx] Combo type validation fix applied.
+[2026-08-14 08:41:15.304] WanVideoWrapper WARNING: FantasyPortrait nodes not available: No module named 'onnx'
+[2026-08-14 08:41:15.337] comfyuiWATCHER progress relay installed (broadcasting watcher.* events)
+[2026-08-14 08:41:15.338] comfyuiWATCHER relay: batch-size reporting installed
+[2026-08-14 08:41:16.345] ------------------------------------------
+[2026-08-14 08:41:16.345] Comfyroll Studio v1.76 :  175 Nodes Loaded
+[2026-08-14 08:41:16.345] ------------------------------------------
+[2026-08-14 08:41:16.345] ** For changes, please see patch notes at https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes/blob/main/Patch_Notes.md
+[2026-08-14 08:41:16.345] ** For help, please see the wiki at https://github.com/Suzie1/ComfyUI_Comfyroll_CustomNodes/wiki
+[2026-08-14 08:41:16.345] ------------------------------------------
+[2026-08-14 08:41:21.431] 
+[2026-08-14 08:41:21.431] Initializing ControlAltAI Nodes
+[2026-08-14 08:41:23.704] EA_LMStudio: Cannot connect to LM Studio at http://127.0.0.1:1234. Ensure LM Studio is running with server enabled.
+[2026-08-14 08:41:23.704] EA_LMStudio startup: Cannot connect to LM Studio at http://127.0.0.1:1234. Ensure LM Studio is running with server enabled.
+[2026-08-14 08:41:23.704] EA_LMStudio: Models will need to be entered manually or refreshed later
+[2026-08-14 08:41:24.041] Using pytorch attention
+[2026-08-14 08:41:24.133] (RES4LYF) Init
+[2026-08-14 08:41:24.133] (RES4LYF) Importing beta samplers.
+[2026-08-14 08:41:24.166] (RES4LYF) Importing legacy samplers.
+[2026-08-14 08:41:24.261] 
+[2026-08-14 08:41:24.261] [rgthree-comfy] Loaded 48 exciting nodes. 🎉
+[2026-08-14 08:41:24.261] 
+[2026-08-14 08:41:24.261] [rgthree-comfy] ComfyUI's new Node 2.0 rendering may be incompatible with some rgthree-comfy nodes and features, breaking some rendering as well as losing the ability to access a node's properties (a vital part of many nodes). It also appears to run MUCH more slowly spiking CPU usage and causing jankiness and unresponsiveness, especially with large workflows. Personally I am not planning to use the new Nodes 2.0 and, unfortunately, am not able to invest the time to investigate and overhaul rgthree-comfy where needed. If you have issues when Nodes 2.0 is enabled, I'd urge you to switch it off as well and join me in hoping ComfyUI is not planning to deprecate the existing, stable canvas rendering all together.
+[2026-08-14 08:41:24.261] 
+[2026-08-14 08:41:24.271] ⚡ SeedVR2 optimizations check: SageAttention ✅ | Flash Attention ❌ | Triton ✅
+[2026-08-14 08:41:24.271] 💡 Optional: pip install flash-attn
+[2026-08-14 08:41:24.271] 🔧 Conv3d workaround active: PyTorch 2.13.0, cuDNN 92000 (fixing VAE 3x memory bug)
+[2026-08-14 08:41:24.415] 📊 Initial CUDA memory: 14.60GB free / 15.92GB total
+[2026-08-14 08:41:26.107] WAS Node Suite: OpenCV Python FFMPEG support is enabled
+[2026-08-14 08:41:26.108] WAS Node Suite Warning: `ffmpeg_bin_path` is not set in `D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\was-ns\was_suite_config.json` config file. Will attempt to use system ffmpeg binaries if available.
+[2026-08-14 08:41:26.874] WAS Node Suite: Finished. Loaded 220 nodes successfully.
+[2026-08-14 08:41:26.875] 
+	"Art is the most intense mode of individualism that the world has known." - Oscar Wilde
+[2026-08-14 08:41:26.875] 
+[2026-08-14 08:41:26.881] 
+Import times for custom nodes:
+[2026-08-14 08:41:26.881]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\websocket_image_save.py
+[2026-08-14 08:41:26.881]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-watcher-relay
+[2026-08-14 08:41:26.881]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui_memory_cleanup
+[2026-08-14 08:41:26.881]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-int-and-float
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\cg-use-everywhere
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyLiterals
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-mxtoolkit
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-inpaint-cropandstitch
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-GGUF
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Flux2Klein-Enhancer
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\Anomalous_Model_Browser
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui_essentials
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-image-saver
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\derfuu_comfyui_moddednodes
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-MiniMax-H3-Turbo
+[2026-08-14 08:41:26.882]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-vslinx-nodes
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\controlaltai-nodes
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Z-Engineer
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-AVS-SSD-ReadAhead
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-VFI
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-INT8-Fast
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-frame-interpolation
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-custom-scripts
+[2026-08-14 08:41:26.883]    0.0 seconds (IMPORT FAILED): D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-TeaCache
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Flux2-INT8
+[2026-08-14 08:41:26.883]    0.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Jakkanna
+[2026-08-14 08:41:26.883]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\rgthree-comfy
+[2026-08-14 08:41:26.883]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-kjnodes
+[2026-08-14 08:41:26.884]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-SolAttn_triton
+[2026-08-14 08:41:26.884]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-LTXVideo
+[2026-08-14 08:41:26.884]    0.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-multigpu
+[2026-08-14 08:41:26.884]    0.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Crystools
+[2026-08-14 08:41:26.884]    0.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\seedvr2_videoupscaler
+[2026-08-14 08:41:26.884]    0.4 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-impact-pack
+[2026-08-14 08:41:26.884]    0.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\RES4LYF
+[2026-08-14 08:41:26.884]    0.5 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-MemXray
+[2026-08-14 08:41:26.884]    0.6 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-WanVideoWrapper
+[2026-08-14 08:41:26.884]    0.9 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI-Stimma
+[2026-08-14 08:41:26.884]    1.0 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\ComfyUI_Comfyroll_CustomNodes
+[2026-08-14 08:41:26.884]    1.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-mobile-frontend
+[2026-08-14 08:41:26.884]    1.6 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-manager
+[2026-08-14 08:41:26.885]    2.2 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\EA_LMStudio
+[2026-08-14 08:41:26.885]    2.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\was-ns
+[2026-08-14 08:41:26.885]    3.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-videohelpersuite
+[2026-08-14 08:41:26.885]    4.3 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui-easy-use
+[2026-08-14 08:41:26.885]    5.1 seconds: D:\ComfyUI_Installs\New Main\ComfyUI\custom_nodes\comfyui_nvidia_rtx_nodes
+[2026-08-14 08:41:26.885] 
+[2026-08-14 08:41:26.909] Context impl SQLiteImpl.
+[2026-08-14 08:41:26.909] Will assume non-transactional DDL.
+[2026-08-14 08:41:27.064] Using RAM pressure cache.
+[2026-08-14 08:41:27.065] Starting server
+
+[2026-08-14 08:41:27.065] [Mobile Push] detection spike active; seeded 0 prior history entries (polling every 1.0s)
+[2026-08-14 08:41:27.068] Auto-detected ComfyUI address: 127.0.0.1:8188
+[2026-08-14 08:41:27.068] ComfyUI client initialized with 1 instance(s): ['127.0.0.1:8188']
+[2026-08-14 08:41:27.069] Starting provider: ComfyUI Workflows
+[2026-08-14 08:41:27.069] STP transport ready, waiting for client on /stp-v1...
+[2026-08-14 08:41:27.069] To see the GUI go to: http://0.0.0.0:8188
+[2026-08-14 08:41:40.480] [DEPRECATION WARNING] Detected import of deprecated legacy API: /scripts/ui/components/buttonGroup.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 08:41:40.483] [DEPRECATION WARNING] Detected import of deprecated legacy API: /scripts/ui.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 08:41:40.485] [DEPRECATION WARNING] Detected import of deprecated legacy API: /extensions/core/clipspace.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 08:41:40.493] [DEPRECATION WARNING] Detected import of deprecated legacy API: /extensions/core/groupNode.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 08:41:40.494] [DEPRECATION WARNING] Detected import of deprecated legacy API: /extensions/core/widgetInputs.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 08:41:40.550] [vsLinx] Combo type fix enabled via settings.
+[2026-08-14 08:41:44.003] [vsLinx] Combo type fix enabled via settings.
+[2026-08-14 08:41:44.011] [DEPRECATION WARNING] Detected import of deprecated legacy API: /scripts/ui/components/button.js. This is likely caused by a custom node extension using outdated APIs. Please update your extensions or contact the extension author for an updated version.
+[2026-08-14 08:43:35.224] FETCH ComfyRegistry Data [DONE]
+[2026-08-14 08:43:35.628] [ComfyUI-Manager] default cache updated: https://api.comfy.org/nodes
+[2026-08-14 08:43:35.701] FETCH DATA from: https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main/custom-node-list.json [DONE]
+[2026-08-14 08:43:36.202] [ComfyUI-Manager] All startup tasks have been completed.
+[2026-08-14 08:49:31.989] got prompt
+[2026-08-14 08:49:32.173] Using pytorch attention in VAE
+[2026-08-14 08:49:32.176] Using pytorch attention in VAE
+[2026-08-14 08:49:33.266] VAE load device: cuda:0, offload device: cpu, dtype: torch.bfloat16
+[2026-08-14 08:49:33.345] Requested to load AutoencoderKL
+[2026-08-14 08:49:33.503] loaded completely; 10804.22 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 08:49:34.257] [Sequential ReadAhead] queued qwen_3_8b_fp8mixed.safetensors: file 8.07 GiB, warm budget 8.07 GiB, RAM reserve 7.03 GiB (avail 41.85 GiB)
+[2026-08-14 08:49:34.284] [Sequential ReadAhead] start isolated qwen_3_8b_fp8mixed.safetensors (budget 8.07/8.07 GiB)
+[2026-08-14 08:49:35.617] Found quantization metadata version 1
+[2026-08-14 08:49:35.618] [MultiGPU Core Patching] text_encoder_device_patched returning device: cuda:0 (current_text_encoder_device=cuda:0)
+[2026-08-14 08:49:35.623] Using MixedPrecisionOps for text encoder
+[2026-08-14 08:49:39.709] Missing weight for layer model.lm_head
+[2026-08-14 08:49:39.710] CLIP/text encoder model load device: cuda:0, offload device: cpu, current: cpu, dtype: torch.float16
+[2026-08-14 08:49:39.714] Requested to load Flux2TEModel_
+[2026-08-14 08:49:53.656] [Sequential ReadAhead] done isolated qwen_3_8b_fp8mixed.safetensors: warmed 8.07/8.07 GiB in 19.40s (0.42 GiB/s)
+[2026-08-14 08:49:54.906] loaded completely; 13257.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 08:49:58.044] [Sequential ReadAhead] queued Flux2-Klein-9B-True-v2-bf16.safetensors: file 16.91 GiB, warm budget 16.91 GiB, RAM reserve 10.00 GiB (avail 41.46 GiB)
+[2026-08-14 08:49:58.072] [Sequential ReadAhead] start isolated Flux2-Klein-9B-True-v2-bf16.safetensors (budget 16.91/16.91 GiB)
+[2026-08-14 08:49:58.193] model weight dtype torch.float16, manual cast: None
+[2026-08-14 08:49:58.197] model_type FLUX
+[2026-08-14 08:50:37.569] [Sequential ReadAhead] done isolated Flux2-Klein-9B-True-v2-bf16.safetensors: warmed 16.91/16.91 GiB in 39.52s (0.43 GiB/s)
+[2026-08-14 08:50:44.153] get_previewer: no previewer for Flux2
+[2026-08-14 08:50:44.467] Requested to load Flux2
+[2026-08-14 08:50:53.876] loaded partially; 6330.68 MB usable, 5444.02 MB loaded, 11872.00 MB offloaded, 864.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 08:51:23.106] 100%|██████████| 6/6 [00:28<00:00,  5.29s/it]100%|██████████| 6/6 [00:28<00:00,  4.80s/it]
+[2026-08-14 08:51:28.574] Requested to load AutoencoderKL
+[2026-08-14 08:51:28.824] loaded completely; 4463.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 08:51:30.491] Prompt executed in 118.49 seconds
+[2026-08-14 08:51:31.339] [Mobile Push] completion detected prompt_id=2d507dde-56d8-461e-b2d0-708a42562d2e status=success outputs=4
+[2026-08-14 08:52:05.515] got prompt
+[2026-08-14 08:52:05.863] get_previewer: no previewer for Flux2
+[2026-08-14 08:52:05.881] Requested to load Flux2
+[2026-08-14 08:52:11.975] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 93
+[2026-08-14 08:52:47.567] 100%|██████████| 6/6 [00:35<00:00,  5.86s/it]100%|██████████| 6/6 [00:35<00:00,  5.88s/it]
+[2026-08-14 08:52:47.737] Requested to load AutoencoderKL
+[2026-08-14 08:52:47.940] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 08:52:49.511] Prompt executed in 43.99 seconds
+[2026-08-14 08:52:50.315] [Mobile Push] completion detected prompt_id=63d199ac-88c9-4df1-8121-89532c8d8eef status=success outputs=4
+[2026-08-14 08:58:41.741] got prompt
+[2026-08-14 08:58:41.763] Requested to load Flux2TEModel_
+[2026-08-14 08:58:41.873] Unloaded partially: 836.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 98
+[2026-08-14 08:58:46.392] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 08:58:49.654] get_previewer: no previewer for Flux2
+[2026-08-14 08:58:49.667] Requested to load Flux2
+[2026-08-14 08:58:55.069] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 93
+[2026-08-14 08:59:29.986] 100%|██████████| 6/6 [00:34<00:00,  5.81s/it]100%|██████████| 6/6 [00:34<00:00,  5.82s/it]
+[2026-08-14 08:59:30.157] Requested to load AutoencoderKL
+[2026-08-14 08:59:30.358] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 08:59:31.855] Prompt executed in 50.11 seconds
+[2026-08-14 08:59:32.583] [Mobile Push] completion detected prompt_id=069efb8b-e6c7-4e38-97d8-b5b6a65a31db status=success outputs=4
+[2026-08-14 10:42:43.251] got prompt
+[2026-08-14 10:42:44.815] get_previewer: no previewer for Flux2
+[2026-08-14 10:42:44.844] Requested to load Flux2
+[2026-08-14 10:42:54.693] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 93
+[2026-08-14 10:43:30.341] 100%|██████████| 6/6 [00:35<00:00,  5.88s/it]100%|██████████| 6/6 [00:35<00:00,  5.94s/it]
+[2026-08-14 10:43:30.519] Requested to load AutoencoderKL
+[2026-08-14 10:43:30.717] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 10:43:32.290] Prompt executed in 49.01 seconds
+[2026-08-14 10:43:33.382] [Mobile Push] completion detected prompt_id=e8552c74-056a-4a3f-a9bd-4b149bb3fa6e status=success outputs=4
+[2026-08-14 11:12:16.965] got prompt
+[2026-08-14 11:12:17.007] Requested to load Flux2TEModel_
+[2026-08-14 11:12:17.294] Unloaded partially: 836.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 98
+[2026-08-14 11:12:26.068] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:12:28.594] get_previewer: no previewer for Flux2
+[2026-08-14 11:12:32.707] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:13:07.809] 100%|██████████| 6/6 [00:35<00:00,  5.85s/it]100%|██████████| 6/6 [00:35<00:00,  5.85s/it]
+[2026-08-14 11:13:07.985] Requested to load AutoencoderKL
+[2026-08-14 11:13:08.199] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:13:09.837] Prompt executed in 52.86 seconds
+[2026-08-14 11:13:10.743] [Mobile Push] completion detected prompt_id=1eedaace-d5d7-49c7-83c7-b679a6e02dcc status=success outputs=4
+[2026-08-14 11:14:10.136] got prompt
+[2026-08-14 11:14:10.158] Requested to load Flux2TEModel_
+[2026-08-14 11:14:10.304] Unloaded partially: 836.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 103
+[2026-08-14 11:14:12.995] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:14:15.454] get_previewer: no previewer for Flux2
+[2026-08-14 11:14:18.757] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:14:53.970] 100%|██████████| 6/6 [00:35<00:00,  5.88s/it]100%|██████████| 6/6 [00:35<00:00,  5.87s/it]
+[2026-08-14 11:14:54.145] Requested to load AutoencoderKL
+[2026-08-14 11:14:54.384] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:14:55.969] Prompt executed in 45.82 seconds
+[2026-08-14 11:14:56.903] [Mobile Push] completion detected prompt_id=4dfb3bbe-c869-4858-9a07-67bbec04910f status=success outputs=4
+[2026-08-14 11:16:12.887] got prompt
+[2026-08-14 11:16:12.911] Requested to load Flux2TEModel_
+[2026-08-14 11:16:13.024] Unloaded partially: 836.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 108
+[2026-08-14 11:16:15.995] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:16:18.485] get_previewer: no previewer for Flux2
+[2026-08-14 11:16:21.926] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:16:57.653] 100%|██████████| 6/6 [00:35<00:00,  5.96s/it]100%|██████████| 6/6 [00:35<00:00,  5.95s/it]
+[2026-08-14 11:16:57.822] Requested to load AutoencoderKL
+[2026-08-14 11:16:58.028] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:16:59.573] Prompt executed in 46.68 seconds
+[2026-08-14 11:17:00.409] [Mobile Push] completion detected prompt_id=7e25d021-59a3-433c-9533-24c1b8d7388e status=success outputs=4
+[2026-08-14 11:18:24.013] got prompt
+[2026-08-14 11:18:24.037] Requested to load Flux2TEModel_
+[2026-08-14 11:18:24.139] Unloaded partially: 836.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 113
+[2026-08-14 11:18:28.604] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:18:30.929] get_previewer: no previewer for Flux2
+[2026-08-14 11:18:34.208] loaded partially; 6330.68 MB usable, 4868.02 MB loaded, 12448.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:19:09.734] 100%|██████████| 6/6 [00:35<00:00,  5.93s/it]100%|██████████| 6/6 [00:35<00:00,  5.92s/it]
+[2026-08-14 11:19:09.894] Requested to load AutoencoderKL
+[2026-08-14 11:19:10.125] loaded completely; 5039.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:19:11.731] Prompt executed in 47.71 seconds
+[2026-08-14 11:19:12.587] [Mobile Push] completion detected prompt_id=809d2e84-a498-484d-abcf-7e9252415d70 status=success outputs=4
+[2026-08-14 11:21:34.869] got prompt
+[2026-08-14 11:21:35.324] Requested to load Flux2TEModel_
+[2026-08-14 11:21:35.436] Unloaded partially: 836.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 118
+[2026-08-14 11:21:37.959] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:21:40.220] get_previewer: no previewer for Flux2
+[2026-08-14 11:21:43.524] loaded partially; 6237.06 MB usable, 4772.02 MB loaded, 12544.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:22:19.829] 100%|██████████| 6/6 [00:36<00:00,  6.05s/it]100%|██████████| 6/6 [00:36<00:00,  6.05s/it]
+[2026-08-14 11:22:20.008] Requested to load AutoencoderKL
+[2026-08-14 11:22:20.225] loaded completely; 5084.00 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:22:21.946] Prompt executed in 47.07 seconds
+[2026-08-14 11:22:22.842] [Mobile Push] completion detected prompt_id=a4cebf83-493d-45df-883d-16f7210e9f39 status=success outputs=4
+[2026-08-14 11:23:13.847] got prompt
+[2026-08-14 11:23:13.874] Requested to load Flux2TEModel_
+[2026-08-14 11:23:14.005] Unloaded partially: 740.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 122
+[2026-08-14 11:23:18.478] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:23:22.541] get_previewer: no previewer for Flux2
+[2026-08-14 11:23:22.559] Requested to load Flux2
+[2026-08-14 11:23:35.870] loaded partially; 6237.06 MB usable, 4772.02 MB loaded, 12544.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 94
+[2026-08-14 11:24:12.372] 100%|██████████| 6/6 [00:36<00:00,  6.08s/it]100%|██████████| 6/6 [00:36<00:00,  6.08s/it]
+[2026-08-14 11:24:12.560] Requested to load AutoencoderKL
+[2026-08-14 11:24:12.811] loaded completely; 5084.00 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:24:14.458] Prompt executed in 60.60 seconds
+[2026-08-14 11:24:15.340] [Mobile Push] completion detected prompt_id=59f146b7-0f33-4d95-970a-eaf4eed1ef95 status=success outputs=4
+[2026-08-14 11:25:37.531] got prompt
+[2026-08-14 11:25:37.555] Requested to load Flux2TEModel_
+[2026-08-14 11:25:37.676] Unloaded partially: 740.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 98
+[2026-08-14 11:25:42.593] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:25:46.376] get_previewer: no previewer for Flux2
+[2026-08-14 11:25:46.394] Requested to load Flux2
+[2026-08-14 11:25:52.498] loaded partially; 6237.06 MB usable, 4772.02 MB loaded, 12544.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 94
+[2026-08-14 11:26:29.994] 100%|██████████| 6/6 [00:37<00:00,  6.19s/it]100%|██████████| 6/6 [00:37<00:00,  6.21s/it]
+[2026-08-14 11:26:30.177] Requested to load AutoencoderKL
+[2026-08-14 11:26:30.424] loaded completely; 5084.00 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:26:32.122] Prompt executed in 54.58 seconds
+[2026-08-14 11:26:33.143] [Mobile Push] completion detected prompt_id=72f15f6f-9303-4dad-a2b3-1a4b6b0f5d67 status=success outputs=4
+[2026-08-14 11:29:14.600] got prompt
+[2026-08-14 11:29:15.503] get_previewer: no previewer for Flux2
+[2026-08-14 11:29:15.519] Requested to load Flux2
+[2026-08-14 11:29:17.705] loaded partially; 6237.06 MB usable, 4772.02 MB loaded, 12544.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 94
+[2026-08-14 11:29:54.541] 100%|██████████| 6/6 [00:36<00:00,  6.11s/it]100%|██████████| 6/6 [00:36<00:00,  6.11s/it]
+[2026-08-14 11:29:54.720] Requested to load AutoencoderKL
+[2026-08-14 11:29:54.955] loaded completely; 5084.00 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:29:56.618] Prompt executed in 42.01 seconds
+[2026-08-14 11:29:57.623] [Mobile Push] completion detected prompt_id=0ebcdf58-009f-477e-a66c-646acb65ed92 status=success outputs=4
+[2026-08-14 11:32:43.234] got prompt
+[2026-08-14 11:32:43.257] Requested to load Flux2TEModel_
+[2026-08-14 11:32:43.367] Unloaded partially: 740.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 98
+[2026-08-14 11:32:47.940] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:32:50.108] get_previewer: no previewer for Flux2
+[2026-08-14 11:32:53.223] loaded partially; 6237.06 MB usable, 4772.02 MB loaded, 12544.00 MB offloaded, 1440.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:33:29.728] 100%|██████████| 6/6 [00:36<00:00,  6.10s/it]100%|██████████| 6/6 [00:36<00:00,  6.08s/it]
+[2026-08-14 11:33:29.911] Requested to load AutoencoderKL
+[2026-08-14 11:33:30.154] loaded completely; 5084.00 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:33:31.878] Prompt executed in 48.63 seconds
+[2026-08-14 11:33:32.833] [Mobile Push] completion detected prompt_id=a128bd17-6678-433e-93f9-42303c2c67fa status=success outputs=4
+[2026-08-14 11:49:39.226] got prompt
+[2026-08-14 11:49:40.860] Requested to load Flux2TEModel_
+[2026-08-14 11:49:40.963] Unloaded partially: 740.02 MB freed, 4032.00 MB remains loaded, 1440.00 MB buffer reserved, lowvram patches: 98
+[2026-08-14 11:49:43.419] loaded completely; 9183.49 MB usable, 8263.34 MB loaded, full load: True
+[2026-08-14 11:49:55.562] get_previewer: no previewer for Flux2
+[2026-08-14 11:49:55.569] Requested to load Flux2
+[2026-08-14 11:50:01.796] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 79
+[2026-08-14 11:50:18.321] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.75s/it]
+[2026-08-14 11:50:18.414] get_previewer: no previewer for Flux2
+[2026-08-14 11:50:18.496] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:50:34.797] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 11:50:34.891] get_previewer: no previewer for Flux2
+[2026-08-14 11:50:34.978] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:50:51.271] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.71s/it]
+[2026-08-14 11:50:51.368] get_previewer: no previewer for Flux2
+[2026-08-14 11:50:51.453] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:51:07.850] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.73s/it]
+[2026-08-14 11:51:07.945] get_previewer: no previewer for Flux2
+[2026-08-14 11:51:08.035] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:51:24.204] 100%|██████████| 6/6 [00:16<00:00,  2.68s/it]100%|██████████| 6/6 [00:16<00:00,  2.69s/it]
+[2026-08-14 11:51:24.296] get_previewer: no previewer for Flux2
+[2026-08-14 11:51:24.377] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:51:40.220] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:51:40.314] get_previewer: no previewer for Flux2
+[2026-08-14 11:51:40.395] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:51:56.285] 100%|██████████| 6/6 [00:15<00:00,  2.66s/it]100%|██████████| 6/6 [00:15<00:00,  2.65s/it]
+[2026-08-14 11:51:56.380] get_previewer: no previewer for Flux2
+[2026-08-14 11:51:56.456] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:52:12.278] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:52:12.374] get_previewer: no previewer for Flux2
+[2026-08-14 11:52:12.458] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:52:28.305] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:52:28.399] get_previewer: no previewer for Flux2
+[2026-08-14 11:52:28.481] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:52:44.333] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:52:44.425] get_previewer: no previewer for Flux2
+[2026-08-14 11:52:44.503] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:53:00.361] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:53:00.453] get_previewer: no previewer for Flux2
+[2026-08-14 11:53:00.533] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:53:16.363] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:53:16.455] get_previewer: no previewer for Flux2
+[2026-08-14 11:53:16.534] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:53:32.412] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.65s/it]
+[2026-08-14 11:53:32.503] get_previewer: no previewer for Flux2
+[2026-08-14 11:53:32.577] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:53:48.405] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:53:48.498] get_previewer: no previewer for Flux2
+[2026-08-14 11:53:48.581] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:54:04.431] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:54:04.523] get_previewer: no previewer for Flux2
+[2026-08-14 11:54:04.602] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:54:20.457] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:54:20.551] get_previewer: no previewer for Flux2
+[2026-08-14 11:54:20.632] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:54:36.507] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.65s/it]
+[2026-08-14 11:54:36.600] get_previewer: no previewer for Flux2
+[2026-08-14 11:54:36.685] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:54:52.536] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:54:52.628] get_previewer: no previewer for Flux2
+[2026-08-14 11:54:52.709] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:55:08.571] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:55:08.666] get_previewer: no previewer for Flux2
+[2026-08-14 11:55:08.743] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:55:24.611] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:55:24.706] get_previewer: no previewer for Flux2
+[2026-08-14 11:55:24.793] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:55:40.669] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.65s/it]
+[2026-08-14 11:55:40.761] get_previewer: no previewer for Flux2
+[2026-08-14 11:55:40.840] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:55:56.686] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:55:56.781] get_previewer: no previewer for Flux2
+[2026-08-14 11:55:56.859] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:56:12.711] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:56:12.804] get_previewer: no previewer for Flux2
+[2026-08-14 11:56:12.884] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:56:28.745] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:56:28.839] get_previewer: no previewer for Flux2
+[2026-08-14 11:56:28.924] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:56:44.765] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:56:44.857] get_previewer: no previewer for Flux2
+[2026-08-14 11:56:44.939] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:57:00.794] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:57:00.887] get_previewer: no previewer for Flux2
+[2026-08-14 11:57:00.974] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:57:16.838] 100%|██████████| 6/6 [00:15<00:00,  2.65s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:57:16.931] get_previewer: no previewer for Flux2
+[2026-08-14 11:57:17.008] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 11:57:32.838] 100%|██████████| 6/6 [00:15<00:00,  2.64s/it]100%|██████████| 6/6 [00:15<00:00,  2.64s/it]
+[2026-08-14 11:57:32.925] Requested to load AutoencoderKL
+[2026-08-14 11:57:33.050] loaded completely; 1423.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 11:57:43.338] Prompt executed in 484.10 seconds
+[2026-08-14 11:57:44.060] [Mobile Push] completion detected prompt_id=aa0689c5-5a42-44d8-800f-9c846bebba91 status=success outputs=28
+[2026-08-14 13:09:27.177] got prompt
+[2026-08-14 13:09:28.261] get_previewer: no previewer for Flux2
+[2026-08-14 13:09:28.275] Requested to load Flux2
+[2026-08-14 13:09:38.670] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 79
+[2026-08-14 13:09:55.158] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.75s/it]
+[2026-08-14 13:09:55.254] get_previewer: no previewer for Flux2
+[2026-08-14 13:09:55.347] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:10:11.563] 100%|██████████| 6/6 [00:16<00:00,  2.70s/it]100%|██████████| 6/6 [00:16<00:00,  2.70s/it]
+[2026-08-14 13:10:11.656] get_previewer: no previewer for Flux2
+[2026-08-14 13:10:11.736] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:10:27.958] 100%|██████████| 6/6 [00:16<00:00,  2.71s/it]100%|██████████| 6/6 [00:16<00:00,  2.70s/it]
+[2026-08-14 13:10:28.053] get_previewer: no previewer for Flux2
+[2026-08-14 13:10:28.143] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:10:44.372] 100%|██████████| 6/6 [00:16<00:00,  2.71s/it]100%|██████████| 6/6 [00:16<00:00,  2.70s/it]
+[2026-08-14 13:10:44.468] get_previewer: no previewer for Flux2
+[2026-08-14 13:10:44.557] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:11:00.819] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.71s/it]
+[2026-08-14 13:11:00.914] get_previewer: no previewer for Flux2
+[2026-08-14 13:11:00.999] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:11:17.245] 100%|██████████| 6/6 [00:16<00:00,  2.71s/it]100%|██████████| 6/6 [00:16<00:00,  2.71s/it]
+[2026-08-14 13:11:17.338] get_previewer: no previewer for Flux2
+[2026-08-14 13:11:17.422] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:11:33.795] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.73s/it]
+[2026-08-14 13:11:33.889] get_previewer: no previewer for Flux2
+[2026-08-14 13:11:33.980] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:11:50.292] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:11:50.386] get_previewer: no previewer for Flux2
+[2026-08-14 13:11:50.475] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:12:06.722] 100%|██████████| 6/6 [00:16<00:00,  2.71s/it]100%|██████████| 6/6 [00:16<00:00,  2.71s/it]
+[2026-08-14 13:12:06.815] get_previewer: no previewer for Flux2
+[2026-08-14 13:12:06.898] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:12:23.354] 100%|██████████| 6/6 [00:16<00:00,  2.74s/it]100%|██████████| 6/6 [00:16<00:00,  2.74s/it]
+[2026-08-14 13:12:23.447] get_previewer: no previewer for Flux2
+[2026-08-14 13:12:23.544] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:12:39.915] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.73s/it]
+[2026-08-14 13:12:40.009] get_previewer: no previewer for Flux2
+[2026-08-14 13:12:40.095] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:12:56.500] 100%|██████████| 6/6 [00:16<00:00,  2.75s/it]100%|██████████| 6/6 [00:16<00:00,  2.73s/it]
+[2026-08-14 13:12:56.593] get_previewer: no previewer for Flux2
+[2026-08-14 13:12:56.686] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:13:13.010] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:13:13.104] get_previewer: no previewer for Flux2
+[2026-08-14 13:13:13.192] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:13:29.513] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:13:29.610] get_previewer: no previewer for Flux2
+[2026-08-14 13:13:29.703] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:13:46.224] 100%|██████████| 6/6 [00:16<00:00,  2.75s/it]100%|██████████| 6/6 [00:16<00:00,  2.75s/it]
+[2026-08-14 13:13:46.317] get_previewer: no previewer for Flux2
+[2026-08-14 13:13:46.405] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:14:02.731] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:14:02.824] get_previewer: no previewer for Flux2
+[2026-08-14 13:14:02.910] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:14:19.222] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:14:19.315] get_previewer: no previewer for Flux2
+[2026-08-14 13:14:19.403] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:14:35.757] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.73s/it]
+[2026-08-14 13:14:35.849] get_previewer: no previewer for Flux2
+[2026-08-14 13:14:35.935] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:14:52.214] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.71s/it]
+[2026-08-14 13:14:52.311] get_previewer: no previewer for Flux2
+[2026-08-14 13:14:52.412] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:15:08.728] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:15:08.822] get_previewer: no previewer for Flux2
+[2026-08-14 13:15:08.914] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:15:25.273] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.73s/it]
+[2026-08-14 13:15:25.366] get_previewer: no previewer for Flux2
+[2026-08-14 13:15:25.447] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:15:41.727] 100%|██████████| 6/6 [00:16<00:00,  2.72s/it]100%|██████████| 6/6 [00:16<00:00,  2.71s/it]
+[2026-08-14 13:15:41.823] get_previewer: no previewer for Flux2
+[2026-08-14 13:15:41.924] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:15:58.261] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:15:58.356] get_previewer: no previewer for Flux2
+[2026-08-14 13:15:58.447] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:16:14.860] 100%|██████████| 6/6 [00:16<00:00,  2.74s/it]100%|██████████| 6/6 [00:16<00:00,  2.74s/it]
+[2026-08-14 13:16:14.952] get_previewer: no previewer for Flux2
+[2026-08-14 13:16:15.042] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:16:31.388] 100%|██████████| 6/6 [00:16<00:00,  2.73s/it]100%|██████████| 6/6 [00:16<00:00,  2.72s/it]
+[2026-08-14 13:16:31.483] get_previewer: no previewer for Flux2
+[2026-08-14 13:16:31.586] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:16:48.023] 100%|██████████| 6/6 [00:16<00:00,  2.75s/it]100%|██████████| 6/6 [00:16<00:00,  2.74s/it]
+[2026-08-14 13:16:48.115] get_previewer: no previewer for Flux2
+[2026-08-14 13:16:48.202] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:17:04.868] 100%|██████████| 6/6 [00:16<00:00,  2.78s/it]100%|██████████| 6/6 [00:16<00:00,  2.78s/it]
+[2026-08-14 13:17:04.967] get_previewer: no previewer for Flux2
+[2026-08-14 13:17:05.065] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:17:21.527] 100%|██████████| 6/6 [00:16<00:00,  2.74s/it]100%|██████████| 6/6 [00:16<00:00,  2.74s/it]
+[2026-08-14 13:17:21.616] Requested to load AutoencoderKL
+[2026-08-14 13:17:21.798] loaded completely; 1423.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 13:17:32.931] Prompt executed in 485.73 seconds
+[2026-08-14 13:17:34.376] [Mobile Push] completion detected prompt_id=c08ecdd5-9fcf-4dc0-bb67-402d2851f895 status=success outputs=28
+[2026-08-14 13:31:54.538] got prompt
+[2026-08-14 13:31:54.647] get_previewer: no previewer for Flux2
+[2026-08-14 13:31:54.793] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:32:11.981] 100%|██████████| 6/6 [00:17<00:00,  2.87s/it]100%|██████████| 6/6 [00:17<00:00,  2.86s/it]
+[2026-08-14 13:32:12.078] get_previewer: no previewer for Flux2
+[2026-08-14 13:32:12.185] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:32:29.538] 100%|██████████| 6/6 [00:17<00:00,  2.87s/it]100%|██████████| 6/6 [00:17<00:00,  2.89s/it]
+[2026-08-14 13:32:29.637] get_previewer: no previewer for Flux2
+[2026-08-14 13:32:29.745] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:32:46.682] 100%|██████████| 6/6 [00:16<00:00,  2.83s/it]100%|██████████| 6/6 [00:16<00:00,  2.82s/it]
+[2026-08-14 13:32:46.777] get_previewer: no previewer for Flux2
+[2026-08-14 13:32:46.883] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:33:04.303] 100%|██████████| 6/6 [00:17<00:00,  2.93s/it]100%|██████████| 6/6 [00:17<00:00,  2.90s/it]
+[2026-08-14 13:33:04.405] get_previewer: no previewer for Flux2
+[2026-08-14 13:33:04.520] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:33:21.806] 100%|██████████| 6/6 [00:17<00:00,  2.85s/it]100%|██████████| 6/6 [00:17<00:00,  2.88s/it]
+[2026-08-14 13:33:21.906] get_previewer: no previewer for Flux2
+[2026-08-14 13:33:22.003] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:33:38.914] 100%|██████████| 6/6 [00:16<00:00,  2.82s/it]100%|██████████| 6/6 [00:16<00:00,  2.82s/it]
+[2026-08-14 13:33:39.017] get_previewer: no previewer for Flux2
+[2026-08-14 13:33:39.119] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:33:55.951] 100%|██████████| 6/6 [00:16<00:00,  2.81s/it]100%|██████████| 6/6 [00:16<00:00,  2.80s/it]
+[2026-08-14 13:33:56.046] get_previewer: no previewer for Flux2
+[2026-08-14 13:33:56.146] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:34:13.018] 100%|██████████| 6/6 [00:16<00:00,  2.81s/it]100%|██████████| 6/6 [00:16<00:00,  2.81s/it]
+[2026-08-14 13:34:13.118] get_previewer: no previewer for Flux2
+[2026-08-14 13:34:13.224] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:34:30.113] 100%|██████████| 6/6 [00:16<00:00,  2.81s/it]100%|██████████| 6/6 [00:16<00:00,  2.81s/it]
+[2026-08-14 13:34:30.209] get_previewer: no previewer for Flux2
+[2026-08-14 13:34:30.308] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:34:47.239] 100%|██████████| 6/6 [00:16<00:00,  2.83s/it]100%|██████████| 6/6 [00:16<00:00,  2.82s/it]
+[2026-08-14 13:34:47.338] get_previewer: no previewer for Flux2
+[2026-08-14 13:34:47.438] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:35:04.725] 100%|██████████| 6/6 [00:17<00:00,  2.87s/it]100%|██████████| 6/6 [00:17<00:00,  2.88s/it]
+[2026-08-14 13:35:04.823] get_previewer: no previewer for Flux2
+[2026-08-14 13:35:04.931] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:35:21.919] 100%|██████████| 6/6 [00:16<00:00,  2.83s/it]100%|██████████| 6/6 [00:16<00:00,  2.83s/it]
+[2026-08-14 13:35:22.018] get_previewer: no previewer for Flux2
+[2026-08-14 13:35:22.116] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:35:39.182] 100%|██████████| 6/6 [00:17<00:00,  2.84s/it]100%|██████████| 6/6 [00:17<00:00,  2.84s/it]
+[2026-08-14 13:35:39.281] get_previewer: no previewer for Flux2
+[2026-08-14 13:35:39.398] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:35:56.364] 100%|██████████| 6/6 [00:16<00:00,  2.84s/it]100%|██████████| 6/6 [00:16<00:00,  2.83s/it]
+[2026-08-14 13:35:56.481] get_previewer: no previewer for Flux2
+[2026-08-14 13:35:56.603] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:36:13.975] 100%|██████████| 6/6 [00:17<00:00,  2.92s/it]100%|██████████| 6/6 [00:17<00:00,  2.90s/it]
+[2026-08-14 13:36:14.071] get_previewer: no previewer for Flux2
+[2026-08-14 13:36:14.177] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:36:31.498] 100%|██████████| 6/6 [00:17<00:00,  2.90s/it]100%|██████████| 6/6 [00:17<00:00,  2.89s/it]
+[2026-08-14 13:36:31.603] get_previewer: no previewer for Flux2
+[2026-08-14 13:36:31.720] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:36:49.027] 100%|██████████| 6/6 [00:17<00:00,  2.90s/it]100%|██████████| 6/6 [00:17<00:00,  2.88s/it]
+[2026-08-14 13:36:49.124] get_previewer: no previewer for Flux2
+[2026-08-14 13:36:49.241] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:37:06.669] 100%|██████████| 6/6 [00:17<00:00,  2.89s/it]100%|██████████| 6/6 [00:17<00:00,  2.90s/it]
+[2026-08-14 13:37:06.768] get_previewer: no previewer for Flux2
+[2026-08-14 13:37:06.882] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:37:24.537] 100%|██████████| 6/6 [00:17<00:00,  2.89s/it]100%|██████████| 6/6 [00:17<00:00,  2.94s/it]
+[2026-08-14 13:37:24.634] get_previewer: no previewer for Flux2
+[2026-08-14 13:37:24.732] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:37:41.704] 100%|██████████| 6/6 [00:16<00:00,  2.83s/it]100%|██████████| 6/6 [00:16<00:00,  2.83s/it]
+[2026-08-14 13:37:41.802] get_previewer: no previewer for Flux2
+[2026-08-14 13:37:41.900] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:37:58.853] 100%|██████████| 6/6 [00:16<00:00,  2.83s/it]100%|██████████| 6/6 [00:16<00:00,  2.83s/it]
+[2026-08-14 13:37:58.949] get_previewer: no previewer for Flux2
+[2026-08-14 13:37:59.044] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:38:16.110] 100%|██████████| 6/6 [00:17<00:00,  2.86s/it]100%|██████████| 6/6 [00:17<00:00,  2.84s/it]
+[2026-08-14 13:38:16.212] get_previewer: no previewer for Flux2
+[2026-08-14 13:38:16.319] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:38:33.275] 100%|██████████| 6/6 [00:16<00:00,  2.82s/it]100%|██████████| 6/6 [00:16<00:00,  2.83s/it]
+[2026-08-14 13:38:33.375] get_previewer: no previewer for Flux2
+[2026-08-14 13:38:33.479] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:38:50.683] 100%|██████████| 6/6 [00:17<00:00,  2.89s/it]100%|██████████| 6/6 [00:17<00:00,  2.87s/it]
+[2026-08-14 13:38:50.791] get_previewer: no previewer for Flux2
+[2026-08-14 13:38:50.895] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:39:08.299] 100%|██████████| 6/6 [00:17<00:00,  2.88s/it]100%|██████████| 6/6 [00:17<00:00,  2.90s/it]
+[2026-08-14 13:39:08.400] get_previewer: no previewer for Flux2
+[2026-08-14 13:39:08.507] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:39:25.763] 100%|██████████| 6/6 [00:17<00:00,  2.88s/it]100%|██████████| 6/6 [00:17<00:00,  2.88s/it]
+[2026-08-14 13:39:25.863] get_previewer: no previewer for Flux2
+[2026-08-14 13:39:25.970] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:39:43.213] 100%|██████████| 6/6 [00:17<00:00,  2.90s/it]100%|██████████| 6/6 [00:17<00:00,  2.87s/it]
+[2026-08-14 13:39:43.312] get_previewer: no previewer for Flux2
+[2026-08-14 13:39:43.429] loaded partially; 9461.58 MB usable, 8484.02 MB loaded, 8832.00 MB offloaded, 960.00 MB buffer reserved, lowvram patches: 0
+[2026-08-14 13:40:00.516] 100%|██████████| 6/6 [00:17<00:00,  2.85s/it]100%|██████████| 6/6 [00:17<00:00,  2.85s/it]
+[2026-08-14 13:40:00.607] Requested to load AutoencoderKL
+[2026-08-14 13:40:00.774] loaded completely; 1423.04 MB usable, 160.31 MB loaded, full load: True
+[2026-08-14 13:40:12.001] Prompt executed in 497.45 seconds
+[2026-08-14 13:40:12.814] [Mobile Push] completion detected prompt_id=8c3e8e16-2199-42b7-8047-4ede077d9ff2 status=success outputs=28
+[2026-08-14 13:43:06.746] [MultiGPU_Memory_Monitor] CPU usage (91.8%) exceeds threshold (85.0%)
+[2026-08-14 13:43:06.748] [MultiGPU_Memory_Management] Triggering PromptExecutor cache reset. Reason: cpu_threshold_exceeded
+[2026-08-14 13:43:07.895] Exception in thread Thread-17 (prompt_worker):
+[2026-08-14 13:43:07.938] Traceback (most recent call last):
+[2026-08-14 13:43:07.945]   File "D:\ComfyUI_Installs\New Main\standalone-env\Lib\threading.py", line 1044, in _bootstrap_inner
+    self.run()
+    ~~~~~~~~^^
+[2026-08-14 13:43:07.945]   File "D:\ComfyUI_Installs\New Main\standalone-env\Lib\threading.py", line 995, in run
+    self._target(*self._args, **self._kwargs)
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[2026-08-14 13:43:07.945]   File "D:\ComfyUI_Installs\New Main\ComfyUI\main.py", line 404, in prompt_worker
+    comfy.model_management.unload_all_models()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+[2026-08-14 13:43:07.945]   File "D:\ComfyUI_Installs\New Main\ComfyUI\comfy\model_management.py", line 2065, in unload_all_models
+    free_memory(1e30, device)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^
+[2026-08-14 13:43:07.945]   File "D:\ComfyUI_Installs\New Main\ComfyUI\comfy\model_management.py", line 889, in free_memory
+    if memory_to_free > 0 and current_loaded_models[i].model_unload(memory_to_free):
+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+[2026-08-14 13:43:07.945]   File "D:\ComfyUI_Installs\New Main\ComfyUI\comfy\model_management.py", line 812, in model_unload
+    self.model_finalizer.detach()
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[2026-08-14 13:43:07.945] AttributeError: 'NoneType' object has no attribute 'detach'
+[2026-08-14 13:43:13.620] got prompt
+[2026-08-14 14:46:20.376] Cancelling pending prompt 749e7a8b-8fd3-470b-b336-e4f7d1aed9cd
+[2026-08-14 14:48:04.189] got prompt
+[2026-08-14 14:48:33.559] Cancelling pending prompt c39370c1-20bb-4982-9955-7139f3c7e9d9
