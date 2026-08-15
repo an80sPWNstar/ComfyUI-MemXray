@@ -107,3 +107,68 @@ and a 786 s 30-step run are near-identical in duration and opposite in cause
 `web/js/memxray.js` gained a "What's been happening" recap under the Tiers
 lanes (`d4b51c0`). Written and syntax-checked, but never rendered in a browser -
 ComfyUI was closed before a refresh. Verify it draws before trusting it.
+
+## 2026-08-15 01:05 -- pinned memory A/B, and the collector that measured it
+
+Recording moved out of ComfyUI. `analysis/collect.py` samples Windows + NVML in
+its own process and commits every sample, so it keeps recording when ComfyUI
+dies. `analysis/memxray_runs.db` now holds sessions 1-2 (10,455 samples, ~3.1 h)
+in `rec_*` tables. `analysis/quickrec.py` is the JSONL stopgap that caught the
+first run; `analysis/ingest_quickrec.py` folds it into the same schema.
+Raw JSONL for the first capture is `analysis/raw/live_20260814.jsonl.gz`.
+
+**The headline result - pinned memory off is the RAM-only configuration:**
+
+| | pinned ON | pinned OFF |
+|---|---|---|
+| GPU-busy duration | 385 s (3 runs: 386/392/388) | 450-459 s (5+ runs) |
+| ComfyUI shared VRAM | 25.34 GB | 0.26 GB |
+| commit peak | 80.4 GB (84%) | 39-46 GB (41-48%) |
+| RAM avail floor | 4.29 GB | 34-40 GB |
+| pagefile peak | 1.30 GB | 0.25-0.50 GB |
+| process working set | 44.1 GB | 6.3-7.7 GB |
+
+Cost of turning pinned off is a stable **+18% wall clock**. Bryan's goal is SSD
+endurance, and pinned OFF is the right answer - but NOT because it writes less.
+Both configs wrote ~0.02 GB to the pagefile. It wins because it keeps commit at
+~44% instead of 84%, so the multi-GB pagefile growth burst (32->67 GB, seen
+2026-08-14) never gets triggered.
+
+**Do not repeat this mistake:** the 25 GB of GPU "Shared Usage" was first read
+here as the NVIDIA driver's sysmem-fallback spill, because dedicated VRAM hit
+95% (15.16 of 15.92 GB) and shared began climbing immediately after. That
+timeline fits pinned staging memory equally well, and the pinned-memory toggle
+proved it was pinned memory - shared collapsed to 0.26 GB with dedicated
+unchanged. Allocation timing cannot separate the two; only the toggle can.
+
+**Measured facts worth not re-deriving:**
+- Per-process VRAM must come from `\GPU Process Memory(*)`, NOT NVML. Under
+  WDDM every `nvmlDeviceGetComputeRunningProcesses` usedGpuMemory is "not
+  available". The PDH set also carries Shared Usage, which NVML has no concept
+  of at all.
+- `PdhExpandWildCardPathW` returns PDH_MORE_DATA as a DWORD; ctypes hands it
+  back signed, so a naive `rc == PDH_MORE_DATA` never matches and every
+  wildcard expansion silently returns []. Mask with `& 0xFFFFFFFF`.
+- Windows adapter LUIDs are joined to NVML indices by matching dedicated bytes
+  at the same instant (256 MB tolerance, greedy, largest first). There is no
+  API that states the mapping. All 3 cards matched: 0x133BA=5070 Ti,
+  0x14B4D=5060 Ti, 0x1823D=3090.
+- Reads do not wear SSDs. G: did 4.5 GB of model reads with zero writes.
+- **The recorder was the biggest writer on the box**: ~2 GB/h to E: from
+  committing every sample with an fsync plus quickrec's own fsync per line,
+  against 25 MB of actual DB growth. If long unattended traces are wanted,
+  batch the commits (still unfixed - Bryan has not called it).
+  `--gpu-proc-floor` now drops sub-64 MB GPU processes (~90 rows/sample of
+  idle desktop apps); ComfyUI is always kept and the sample totals are summed
+  before the filter, so they stay exact.
+
+**State on exit:** both recorders STOPPED at Bryan's request. Nothing is
+sampling. Restart with
+`python analysis/collect.py --label <name>`. ComfyUI still up on 8188 (pid
+36268 as of 01:04), pinned memory disabled, `--disable-dynamic-vram` still
+absent. Multi-GPU is off the table until comfyui-multigpu works with dynamic
+VRAM, so the idle 3090 is deliberate - do not propose it again.
+
+Untouched from the previous entry: the three `memxray/sampler.py` bugs
+(`alarm-latch`, `verdict-strobe`, `alarm-text-mismatch`) are still open, and
+the panel is still blind to shared VRAM and to commit pressure.
