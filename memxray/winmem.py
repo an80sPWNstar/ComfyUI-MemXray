@@ -235,16 +235,82 @@ SYSTEM_COUNTERS = {
     "page_reads_sec": r"\Memory\Page Reads/sec",
     "pages_output_sec": r"\Memory\Pages Output/sec",
     "page_writes_sec": r"\Memory\Page Writes/sec",
+    # Soft-fault family. These cost no disk I/O, so they never justify an
+    # alarm, but they separate "the process is touching new memory" from "the
+    # process is waiting on the disk" - which the total fault rate cannot.
+    "page_faults_sec": r"\Memory\Page Faults/sec",
+    "transition_faults_sec": r"\Memory\Transition Faults/sec",
+    "demand_zero_faults_sec": r"\Memory\Demand Zero Faults/sec",
+    "cache_faults_sec": r"\Memory\Cache Faults/sec",
+    # Pages pulled back off the standby list are pages Windows had already
+    # decided to give up on. A rising rate is the earliest sign of pressure.
+    "transition_repurposed_sec": r"\Memory\Transition Pages RePurposed/sec",
+    # Kernel pools and the resident file cache compete with the process for
+    # the same physical RAM, so they are part of the headroom story.
+    "pool_paged": r"\Memory\Pool Paged Bytes",
+    "pool_nonpaged": r"\Memory\Pool Nonpaged Bytes",
+    "pool_paged_resident": r"\Memory\Pool Paged Resident Bytes",
+    "system_cache_resident": r"\Memory\System Cache Resident Bytes",
 }
 
 PAGEFILE_COUNTER = r"\Paging File(_Total)\% Usage"
+# Per-file, not just the total: Windows grows each pagefile independently and
+# a fixed-size file on a full disk fails while the total still looks healthy.
+PAGEFILE_WILDCARD = r"\Paging File(*)\% Usage"
+PAGEFILE_PEAK_WILDCARD = r"\Paging File(*)\% Usage Peak"
 
 PROCESS_COUNTERS = {
     "private_working_set": "Working Set - Private",
     "working_set": "Working Set",
+    "working_set_peak": "Working Set Peak",
     "private_bytes": "Private Bytes",
+    "virtual_bytes": "Virtual Bytes",
+    # Per-process commit charge and its high-water mark. This is the number
+    # that attributes system pagefile usage to a process - without it,
+    # evicted_max can only ever be an upper bound over the whole machine.
+    "pagefile_bytes": "Page File Bytes",
+    "pagefile_bytes_peak": "Page File Bytes Peak",
     "page_faults_sec": "Page Faults/sec",
     "io_read_bytes_sec": "IO Read Bytes/sec",
+    "io_write_bytes_sec": "IO Write Bytes/sec",
+    "pool_paged_bytes": "Pool Paged Bytes",
+    "pool_nonpaged_bytes": "Pool Nonpaged Bytes",
+    "handle_count": "Handle Count",
+    "thread_count": "Thread Count",
+}
+
+# WDDM does not let NVML report per-process VRAM on Windows - every
+# usedGpuMemory comes back "not available". Windows exposes the same facts
+# through these counter sets instead, and adds the one number NVML has no
+# concept of: Shared Usage, GPU memory that lives in system RAM and is
+# therefore pagefile-eligible. That is the VRAM -> RAM -> pagefile path this
+# whole pack exists to watch, so it is sampled from PDH, not from NVML.
+GPU_PROCESS_COUNTERS = {
+    "dedicated": r"\GPU Process Memory(*)\Dedicated Usage",
+    "shared": r"\GPU Process Memory(*)\Shared Usage",
+    "committed": r"\GPU Process Memory(*)\Total Committed",
+    "local": r"\GPU Process Memory(*)\Local Usage",
+    "non_local": r"\GPU Process Memory(*)\Non Local Usage",
+}
+
+GPU_ADAPTER_COUNTERS = {
+    "dedicated": r"\GPU Adapter Memory(*)\Dedicated Usage",
+    "shared": r"\GPU Adapter Memory(*)\Shared Usage",
+    "committed": r"\GPU Adapter Memory(*)\Total Committed",
+}
+
+# SSD endurance is spent by writes, not reads, and the page-out counters only
+# say how many pages Windows evicted - not which drive took them or what else
+# was writing at the time. These do, per physical disk.
+DISK_COUNTERS = {
+    "read_bytes_sec": r"\PhysicalDisk(*)\Disk Read Bytes/sec",
+    "write_bytes_sec": r"\PhysicalDisk(*)\Disk Write Bytes/sec",
+    "reads_sec": r"\PhysicalDisk(*)\Disk Reads/sec",
+    "writes_sec": r"\PhysicalDisk(*)\Disk Writes/sec",
+    "queue": r"\PhysicalDisk(*)\Current Disk Queue Length",
+    "avg_read_s": r"\PhysicalDisk(*)\Avg. Disk sec/Read",
+    "avg_write_s": r"\PhysicalDisk(*)\Avg. Disk sec/Write",
+    "idle_pct": r"\PhysicalDisk(*)\% Idle Time",
 }
 
 
@@ -428,6 +494,209 @@ class PdhSession:
                 pass
             self._query = None
             self.ok = False
+
+
+# --------------------------------------------------------------------------
+# Wildcard PDH: counter sets whose instances come and go
+# --------------------------------------------------------------------------
+
+PDH_MORE_DATA = 0x800007D2
+
+
+def _pdh_dll():
+    """Lazily load pdh.dll with argtypes set. None off Windows."""
+    global _PDH
+    if _PDH is not None or not IS_WINDOWS:
+        return _PDH
+    try:
+        dll = ctypes.WinDLL("pdh")
+    except OSError:
+        return None
+    dll.PdhOpenQueryW.argtypes = [
+        wintypes.LPCWSTR, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)
+    ]
+    dll.PdhAddEnglishCounterW.argtypes = [
+        ctypes.c_void_p, wintypes.LPCWSTR, ctypes.c_void_p,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
+    dll.PdhCollectQueryData.argtypes = [ctypes.c_void_p]
+    dll.PdhCloseQuery.argtypes = [ctypes.c_void_p]
+    dll.PdhExpandWildCardPathW.argtypes = [
+        wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.c_void_p,
+        ctypes.POINTER(wintypes.DWORD), wintypes.DWORD,
+    ]
+    _PDH = dll
+    return _PDH
+
+
+_PDH = None
+
+
+def expand_wildcard(path: str) -> list[str]:
+    """Expand one wildcard counter path into its live instance paths."""
+    dll = _pdh_dll()
+    if dll is None:
+        return []
+    size = wintypes.DWORD(0)
+    # PDH returns a DWORD status; ctypes hands it back signed, so PDH_MORE_DATA
+    # arrives as a negative number and a naive == comparison always fails.
+    rc = dll.PdhExpandWildCardPathW(None, path, None, ctypes.byref(size), 0) & 0xFFFFFFFF
+    if rc != PDH_MORE_DATA or size.value == 0:
+        return []
+    buf = ctypes.create_unicode_buffer(size.value)
+    rc = dll.PdhExpandWildCardPathW(None, path, buf, ctypes.byref(size), 0)
+    if rc != 0:
+        return []
+    # MULTI_SZ: NUL-separated, double-NUL terminated.
+    out, start = [], 0
+    raw = buf[: size.value]
+    for i, ch in enumerate(raw):
+        if ch == "\x00":
+            if i == start:
+                break
+            out.append("".join(raw[start:i]))
+            start = i + 1
+    return out
+
+
+def _instance_of(path: str) -> str:
+    a = path.find("(")
+    b = path.rfind(")")
+    return path[a + 1 : b] if 0 <= a < b else ""
+
+
+class WildcardQuery:
+    """A PDH query over counter sets with volatile instances.
+
+    Instances appear and vanish as processes start and exit, so the query is
+    rebuilt rather than kept forever: a handle to a dead instance keeps
+    reporting its last value, which would show a closed ComfyUI still holding
+    VRAM for the rest of the trace.
+    """
+
+    def __init__(self, counters: dict[str, str]):
+        self.counters = counters
+        self.error: Optional[str] = None
+        self._query = None
+        self._handles: list[tuple[str, str, ctypes.c_void_p]] = []
+        self._dll = _pdh_dll()
+        if self._dll is None:
+            self.error = "pdh.dll unavailable"
+            return
+        self.rebuild()
+
+    @property
+    def ok(self) -> bool:
+        return bool(self._handles)
+
+    def rebuild(self) -> None:
+        self.close()
+        dll = self._dll
+        if dll is None:
+            return
+        q = ctypes.c_void_p()
+        if dll.PdhOpenQueryW(None, 0, ctypes.byref(q)) != 0:
+            self.error = "PdhOpenQuery failed"
+            return
+        self._query = q
+        for key, wildcard in self.counters.items():
+            for full in expand_wildcard(wildcard):
+                h = ctypes.c_void_p()
+                if dll.PdhAddEnglishCounterW(q, full, 0, ctypes.byref(h)) != 0:
+                    continue
+                self._handles.append((key, _instance_of(full), h))
+        # These are gauges, not rates, so one collect is enough to make them
+        # readable - but collecting twice costs nothing and keeps any rate
+        # counter added later honest.
+        dll.PdhCollectQueryData(q)
+
+    def read(self) -> dict[str, dict[str, float]]:
+        """{instance: {key: value}} for every instance that reported."""
+        out: dict[str, dict[str, float]] = {}
+        dll = self._dll
+        if dll is None or self._query is None:
+            return out
+        if dll.PdhCollectQueryData(self._query) != 0:
+            return out
+        for key, inst, handle in self._handles:
+            val = PDH_FMT_COUNTERVALUE()
+            rc = dll.PdhGetFormattedCounterValue(
+                handle, PDH_FMT_DOUBLE | PDH_FMT_NOCAP100, None, ctypes.byref(val)
+            )
+            if rc == 0:
+                out.setdefault(inst, {})[key] = val.value.doubleValue
+        return out
+
+    def close(self) -> None:
+        if self._query is not None and self._dll is not None:
+            try:
+                self._dll.PdhCloseQuery(self._query)
+            except Exception:
+                pass
+        self._query = None
+        self._handles = []
+
+
+def parse_gpu_process_instance(inst: str) -> dict:
+    """`pid_17156_luid_0x00000000_0x0000C1B0_phys_0` -> its parts.
+
+    The LUID identifies the adapter to Windows; it is NOT the NVML or CUDA
+    index, and `phys_N` numbers cards within one LUID. Both are kept raw so a
+    later join can be made honestly rather than guessed at here.
+    """
+    parts = inst.split("_")
+    out = {"instance": inst, "pid": None, "luid": None, "phys": None}
+    try:
+        for i, p in enumerate(parts):
+            if p == "pid" and i + 1 < len(parts):
+                out["pid"] = int(parts[i + 1])
+            elif p == "luid" and i + 2 < len(parts):
+                out["luid"] = parts[i + 1] + "_" + parts[i + 2]
+            elif p == "phys" and i + 1 < len(parts):
+                out["phys"] = int(parts[i + 1])
+    except (ValueError, IndexError):
+        pass
+    return out
+
+
+def pagefile_instances() -> dict[str, dict]:
+    """Per-pagefile-file bytes, read raw so the numbers are bytes not percent.
+
+    FirstValue = pages in use, SecondValue = size in pages, same as the
+    _Total instance the sampler already reads.
+    """
+    dll = _pdh_dll()
+    if dll is None:
+        return {}
+    q = ctypes.c_void_p()
+    if dll.PdhOpenQueryW(None, 0, ctypes.byref(q)) != 0:
+        return {}
+    handles: list[tuple[str, str, ctypes.c_void_p]] = []
+    try:
+        for key, wildcard in (
+            ("used", PAGEFILE_WILDCARD), ("peak", PAGEFILE_PEAK_WILDCARD)
+        ):
+            for full in expand_wildcard(wildcard):
+                h = ctypes.c_void_p()
+                if dll.PdhAddEnglishCounterW(q, full, 0, ctypes.byref(h)) == 0:
+                    handles.append((key, _instance_of(full), h))
+        dll.PdhCollectQueryData(q)
+        out: dict[str, dict] = {}
+        for key, inst, h in handles:
+            raw = PDH_RAW_COUNTER()
+            if dll.PdhGetRawCounterValue(h, None, ctypes.byref(raw)) != 0:
+                continue
+            if raw.SecondValue <= 0:
+                continue
+            rec = out.setdefault(inst, {"name": inst})
+            rec["size"] = raw.SecondValue * PAGE_SIZE
+            rec["%s_bytes" % key] = raw.FirstValue * PAGE_SIZE
+        return out
+    finally:
+        try:
+            dll.PdhCloseQuery(q)
+        except Exception:
+            pass
 
 
 def _init_page_size() -> None:
