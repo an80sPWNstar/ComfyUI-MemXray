@@ -914,6 +914,124 @@ function updateTiersView(surf) {
     }
 
     t.foot.textContent = tiersFootText(proc);
+    updateTiersRecap(t);
+}
+
+// ---- "What's been happening" recap -----------------------------------------
+// The three lanes above answer "where is memory right now". This block answers
+// the question that actually comes up while a generation runs: was any of that
+// a problem, and is it over? All of it is read back out of the rolling window
+// already in state.series, so it costs nothing extra from the backend.
+
+const RECAP_BUSY_READS = 100;   // reads/s below this is background noise, not "the disk was busy"
+
+// Walks the visible window once and pulls out the few extremes worth naming.
+function windowRecap() {
+    const s = state.series;
+    const t = s.t;
+    const n = t.length;
+    const start = windowStart(t, state.windowSeconds);
+    if (n - start < 2) return null;
+
+    let minAvail = Infinity;
+    let minAvailAt = t[start];
+    let maxReads = 0;
+    let maxPfDelta = 0;
+    let maxEvicted = 0;
+    let faultedWhileGrowing = false;
+
+    for (let i = start; i < n; i++) {
+        const avail = num(s.phys_avail[i]);
+        if (avail < minAvail) { minAvail = avail; minAvailAt = t[i]; }
+        const reads = num(s.page_reads_sec[i]);
+        if (reads > maxReads) maxReads = reads;
+        const delta = num(s.pagefile_delta[i]);
+        if (delta > maxPfDelta) maxPfDelta = delta;
+        const evicted = num(s.evicted_max[i]);
+        if (evicted > maxEvicted) maxEvicted = evicted;
+        // The pairing that separates real pagefile trouble from a model load:
+        // faulting hard AND the pagefile growing in the same sample.
+        if (reads >= RECAP_BUSY_READS && delta > PAGEFILE_GROWTH_THRESHOLD) {
+            faultedWhileGrowing = true;
+        }
+    }
+
+    return {
+        minAvail,
+        minAvailAgo: Math.max(0, t[n - 1] - minAvailAt),
+        availNow: num(s.phys_avail[n - 1]),
+        maxReads,
+        maxPfDelta,
+        maxEvicted,
+        grew: maxPfDelta > PAGEFILE_GROWTH_THRESHOLD,
+        busy: maxReads >= RECAP_BUSY_READS,
+        faultedWhileGrowing,
+    };
+}
+
+function updateTiersRecap(t) {
+    const r = windowRecap();
+    t.recapCap.textContent = `last ${formatWindowStamp(state.windowSeconds)}`;
+
+    if (!r) {
+        setRecapRow(t.recapTight, "-", "");
+        setRecapRow(t.recapPagefile, "-", "");
+        setRecapRow(t.recapDisk, "-", "");
+        setRecapRow(t.recapNow, "-", "");
+        t.recapFoot.textContent = "Still filling the window - a few more seconds of history needed.";
+        return;
+    }
+
+    // 1. the worst moment, and whether it has passed
+    setRecapRow(t.recapTight,
+        `${human(r.minAvail)} free`,
+        r.minAvailAgo < 5 ? "right now" : `${formatDuration(r.minAvailAgo)} ago`,
+        r.minAvail <= EVICT_LINE ? "critical" : "");
+
+    // 2. did the pagefile actually grow - the only pagefile-specific signal
+    setRecapRow(t.recapPagefile,
+        r.grew ? `grew, up to ${formatRate(r.maxPfDelta)}` : "held steady",
+        r.grew ? `as much as ${human(r.maxEvicted)} may have moved out` : "nothing pushed to disk",
+        r.grew ? "warn" : "");
+
+    // 3. disk read peak, always paired with what caused it
+    setRecapRow(t.recapDisk,
+        `${r.maxReads.toFixed(0)}/s peak`,
+        r.busy ? (r.faultedWhileGrowing ? "pagefile was in play" : "reading model files") : "quiet",
+        r.faultedWhileGrowing ? "warn" : "");
+
+    // 4. where it stands now versus that worst moment
+    const regained = r.availNow - r.minAvail;
+    setRecapRow(t.recapNow,
+        `${human(r.availNow)} free`,
+        regained > 256 * 1024 * 1024 ? `recovered ${human(regained)}` : "no change since",
+        r.availNow <= EVICT_LINE ? "critical" : "");
+
+    t.recapFoot.textContent = recapSentence(r);
+}
+
+function setRecapRow(row, value, note, tone) {
+    row.value.textContent = value;
+    row.value.dataset.state = tone || "";
+    row.note.textContent = note || "";
+}
+
+// The plain-language read on the window. Ordered worst-first so the sentence
+// names the real problem when there is one, rather than burying it.
+function recapSentence(r) {
+    if (r.faultedWhileGrowing) {
+        return `Memory was being pushed to disk and read back at the same time - up to ${human(r.maxEvicted)} of ComfyUI's memory may have been on the pagefile. This is the pattern that makes generations crawl.`;
+    }
+    if (r.grew) {
+        return `The pagefile grew during this window, but nothing was reading heavily from disk afterwards. Memory was set aside, not fought over.`;
+    }
+    if (r.busy) {
+        return `The disk was busy - ${r.maxReads.toFixed(0)} reads/s at peak - but the pagefile never grew. That is model files being read in, which costs loading time, not stability.`;
+    }
+    if (r.minAvail <= EVICT_LINE) {
+        return `RAM got tight, down to ${human(r.minAvail)} free, but nothing was evicted and the disk stayed quiet.`;
+    }
+    return "Nothing worth flagging - headroom stayed clear of the eviction line and the pagefile never grew.";
 }
 
 function emptyTrackNote(text) {
@@ -1462,6 +1580,34 @@ function injectStyle() {
     gap: 10px;
 }
 .memxray-cap i { font-style: normal; font-family: var(--mx-num); letter-spacing: 0; font-size: 11px; }
+/* --- Tiers recap: readings over the window, then what they mean ---------- */
+.memxray-recap {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--mx-line);
+}
+.memxray-recap-rows {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 6px 12px;
+    align-items: baseline;
+}
+.memxray-recap-label { font-size: 12px; color: var(--mx-ink-3); white-space: nowrap; }
+.memxray-recap-value {
+    font-family: var(--mx-num);
+    font-size: 12.5px;
+    color: var(--mx-ink);
+}
+.memxray-recap-value[data-state="warn"] { color: var(--mx-evicted); }
+.memxray-recap-value[data-state="critical"] { color: var(--mx-critical); }
+.memxray-recap-note {
+    font-size: 11px;
+    color: var(--mx-ink-3);
+    text-align: right;
+    white-space: nowrap;
+}
 .memxray-gpu-rows { display: flex; flex-direction: column; gap: 6px; }
 .memxray-gpu-row { display: flex; flex-direction: column; gap: 3px; }
 .memxray-gpu-label {
@@ -1964,12 +2110,51 @@ function buildSurface(container) {
     const tiersFoot = document.createElement("p");
     tiersFoot.className = "memxray-foot";
 
+    // The recap block fills the space under the three lanes: four readings
+    // taken over the visible window, then one sentence saying what they mean.
+    const recap = document.createElement("div");
+    recap.className = "memxray-recap";
+    const recapHead = document.createElement("div");
+    recapHead.className = "memxray-cap";
+    const recapTitle = document.createElement("span");
+    recapTitle.textContent = "What's been happening";
+    const recapCap = document.createElement("i");
+    recapHead.appendChild(recapTitle);
+    recapHead.appendChild(recapCap);
+    recap.appendChild(recapHead);
+
+    const recapRows = document.createElement("div");
+    recapRows.className = "memxray-recap-rows";
+    function makeRecapRow(label) {
+        const l = document.createElement("span");
+        l.className = "memxray-recap-label";
+        l.textContent = label;
+        const value = document.createElement("span");
+        value.className = "memxray-recap-value";
+        const note = document.createElement("span");
+        note.className = "memxray-recap-note";
+        recapRows.appendChild(l);
+        recapRows.appendChild(value);
+        recapRows.appendChild(note);
+        return { value, note };
+    }
+    const recapTight = makeRecapRow("Tightest RAM got");
+    const recapPagefile = makeRecapRow("Pagefile");
+    const recapDisk = makeRecapRow("Disk reads");
+    const recapNow = makeRecapRow("Where it stands");
+    recap.appendChild(recapRows);
+
+    const recapFoot = document.createElement("p");
+    recapFoot.className = "memxray-foot";
+    recap.appendChild(recapFoot);
+
     viewTiers.appendChild(vramLane.lane);
     viewTiers.appendChild(flow1);
     viewTiers.appendChild(ramLane.lane);
     viewTiers.appendChild(flow2);
     viewTiers.appendChild(pfLane.lane);
     viewTiers.appendChild(tiersFoot);
+    viewTiers.appendChild(recap);
 
     // --- View B: Models -----------------------------------------------------
     // One row per loaded model - the unit ComfyUI users already think in,
@@ -2176,6 +2361,8 @@ function buildSurface(container) {
             ramCap: ramLane.capValue, ramTrack,
             pfCap: pfLane.capValue, pfTrack,
             flow1, flow2, foot: tiersFoot,
+            recapCap, recapTight, recapPagefile, recapDisk, recapNow,
+            recapFoot,
         },
         models: { ledger, empty: modelsEmpty, warn: modelsWarn },
         headroom: {
