@@ -1,0 +1,17 @@
+# Kept out of the published registry archive. Gitignore syntax.
+#
+# The pack itself is well under a megabyte. Everything below is research
+# material - recorded sessions used to derive the numbers quoted in the README.
+# It stays in the repo for anyone who wants to check the working, but shipping
+# it to every Manager install would make the download ~300x bigger for no
+# benefit. The analysis scripts themselves are still included, so a clone is
+# only needed to re-run them against your own captures.
+analysis/memxray_runs.db
+analysis/raw/
+
+# docs/ is deliberately NOT excluded: it is only ~60 KB of screenshots, and the
+# registry renders this README on the node's public page - dropping them would
+# leave broken images there.
+
+# Session handoff notes - development bookkeeping, not part of the pack.
+HANDOFF.md

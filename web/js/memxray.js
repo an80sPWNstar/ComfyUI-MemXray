@@ -33,6 +33,16 @@ const COLORS = {
     residentLift: "#4fc3e8",   // same hue, lighter step, for the edge line
     residentFill: "rgba(43, 156, 187, 0.22)",
     mapped: "#8073e6",         // series 2 - file-backed / mmap'd pages
+
+    // Placement-tier ramp (Models/Tiers bars + their legend). Heat says speed:
+    // red = fastest (GPU), orange = fast (RAM), yellow = slow (disk). The
+    // "not loaded" tier stays on `mapped` purple - it is the same file-backed
+    // idea the purple series already names. Deliberately NOT the resident
+    // cyans: two shades of one hue read as two amounts of one thing, and GPU
+    // vs RAM are different places.
+    tierGpu: "#d94f43",
+    tierRam: "#e08a3c",
+    tierPf: "#d4b83e",
     evicted: "#bd811e",        // status: warning - could be on disk
     // Deliberately faint: this band is an upper bound (capped by the
     // system-wide pagefile), not a measurement of ComfyUI's own eviction. A
@@ -119,6 +129,8 @@ const state = {
     markers: [],
     windowSeconds: 300,
     pollTimer: null,
+    hover: null, // { index, x, y } while the pointer is over the Details canvas
+    _lastNow: null, // most recent /stats "now" payload
     visibleSurfaces: new Set(), // ids of surfaces currently on screen
     lastVerdict: null,
     lastStatus: "ok", // "ok" | "unreachable"
@@ -418,11 +430,13 @@ function drawPanelA(ctx, x0, x1, panel, start, n, xAt) {
     maxV = niceCeil(maxV);
     const yOf = (v) => py1 - (num(v) / maxV) * (py1 - py0);
 
-    panelHeader(ctx, x0, x1, panel.y0, "Process memory", [
+    // Legend wording matches the tier vocabulary the other views use: the same
+    // bytes must not be called "evicted" here and "slow (disk)" one tab over.
+    panelHeader(ctx, x0, x1, panel.y0, "ComfyUI's memory", [
         { label: "in RAM", color: COLORS.resident },
-        { label: "evicted ≤", color: COLORS.evicted },
-        { label: "untouched", color: COLORS.voidEdge },
-        { label: "mapped", color: COLORS.mapped, line: true },
+        { label: "out of RAM ≤", color: COLORS.evicted },
+        { label: "never used", color: COLORS.voidEdge },
+        { label: "model files", color: COLORS.mapped, line: true },
     ]);
     plotGrid(ctx, x0, x1, py0, py1);
 
@@ -487,10 +501,10 @@ function drawPanelB(ctx, x0, x1, panel, start, n, xAt) {
     const py1 = panel.y1;
     const h = py1 - py0;
 
-    panelHeader(ctx, x0, x1, panel.y0, "System RAM", [
+    panelHeader(ctx, x0, x1, panel.y0, "All RAM in the machine", [
         { label: "in use", color: COLORS.inUse },
         { label: "modified", color: COLORS.modified },
-        { label: "standby", color: COLORS.standby },
+        { label: "cache", color: COLORS.standby },
         { label: "free", color: COLORS.free },
     ]);
 
@@ -535,9 +549,9 @@ function drawPanelC(ctx, x0, x1, panel, start, n, xAt) {
     for (let i = start; i < n; i++) maxV = Math.max(maxV, s.page_reads_sec[i]);
     maxV = niceCeil(maxV);
 
-    panelHeader(ctx, x0, x1, panel.y0, "Hard faults / s", [
-        { label: "pagefile", color: COLORS.critical },
-        { label: "mapped file", color: COLORS.evicted },
+    panelHeader(ctx, x0, x1, panel.y0, "Reads from disk / s", [
+        { label: "pagefile (slow)", color: COLORS.critical },
+        { label: "model file", color: COLORS.evicted },
     ]);
     plotGrid(ctx, x0, x1, py0, py1);
 
@@ -677,7 +691,10 @@ function updateHeaderCommon(surf) {
     if (state.lastStatus === "unreachable") {
         surf.verdictRow.dataset.level = "warn";
         surf.verdictHead.textContent = "no signal";
-        surf.verdictText.textContent = "backend unreachable - retrying every second";
+        surf.verdictText.textContent =
+            "backend unreachable - retrying every second. On Linux/macOS this " +
+            "is expected (Windows-only pack); on Windows check the ComfyUI " +
+            "console for [MemXray] errors.";
         return;
     }
 
@@ -763,7 +780,18 @@ function updateDetailsTiles(surf) {
     surf.tiles.hardReads.sub.textContent = growing ? "pagefile growing" : "disk, cause unproven";
 
     const gpus = Array.isArray(models.gpus) ? models.gpus : [];
-    let modelsLine = `${num(models.count)} model(s) - on device ${human(models.on_device_bytes)} - offloaded ${human(models.offloaded_bytes)}`;
+    // Same four tiers as the other views, so this line and the Models grid can
+    // never disagree about where the weights are.
+    const totals = models.placement_totals;
+    let modelsLine = `${num(models.count)} model(s)`;
+    if (totals && totals.measured) {
+        modelsLine += " - " + PLACED_TIERS
+            .map((d) => `${d.label} ${human(num(totals[d.key]))}`)
+            .join("  ");
+        if (num(totals.unknown) > 0) modelsLine += `  not measured ${human(totals.unknown)}`;
+    } else {
+        modelsLine += ` - on device ${human(models.on_device_bytes)} - offloaded ${human(models.offloaded_bytes)}`;
+    }
     if (gpus.length) {
         modelsLine += "  |  " + gpus.map((g) => {
             const used = typeof g.used === "number" ? human(g.used) : "unknown";
@@ -781,6 +809,211 @@ function updateDetailsTiles(surf) {
 // active view. Built with createElement/textContent throughout, not
 // innerHTML: model names come from the backend (arbitrary checkpoint
 // filenames), and this way there is nothing to escape.
+
+// ---- the four places a model's bytes can be --------------------------------
+// One definition, used by the Models grid, the Tiers bars and every legend, so
+// a tier cannot end up called two different things in two views.
+//
+// Wording is place-first (Bryan, 2026-08-18): the place leads, the speed is
+// the parenthetical. "Out of the working set" and "mmap'd" are what these are
+// called in the docs; nobody reading a panel mid-generation should have to know
+// that.
+//
+// The honest limit, which the tooltips and sentences repeat: `pagefile` and
+// `file` are measured OUT OF RAM, with the backing store measured too. A page
+// that has left the working set may still be physically in RAM on Windows'
+// standby list - no user-mode API reports that per page - so neither tier ever
+// claims "currently on the platter".
+const TIER_DEFS = [
+    {
+        key: "gpu", chip: "G", short: "GPU",
+        label: "GPU (fastest)",
+        cls: "memxray-tier-gpu",
+        why: "on the graphics card, ready to compute",
+    },
+    {
+        key: "ram", chip: "R", short: "RAM",
+        label: "RAM (fast)",
+        cls: "memxray-tier-ram",
+        why: "in system RAM - one copy away from the card",
+    },
+    {
+        key: "pagefile", chip: "D", short: "disk",
+        label: "disk (slow)",
+        cls: "memxray-tier-pf",
+        why: "out of RAM, and the pagefile is the only place that can hold it",
+    },
+    {
+        key: "file", chip: "F", short: "file",
+        label: "file (not loaded)",
+        cls: "memxray-tier-file",
+        why: "out of RAM - this comes back from the model file, not the pagefile. "
+            + "Windows may still hold some of it in its cache",
+    },
+    {
+        key: "unknown", chip: "?", short: "unknown",
+        label: "not measured",
+        cls: "memxray-tier-unknown",
+        why: "the per-page probe has not covered these bytes",
+    },
+];
+const PLACED_TIERS = TIER_DEFS.slice(0, 4);
+
+// Why the GPU tier trusts more than the page walk: a streaming loader (the
+// INT8 streamer here) stages layers into scratch VRAM buffers that are never
+// attached as module parameters - the walk finds those bytes still file-mapped
+// while ComfyUI's own accounting (`on_device`) says gigabytes are on the card
+// and the GPU sits at 100%. Measured 2026-08-18: on_device 9.0 GB vs walked
+// gpu 1.2 MB (exactly the force-pre-loaded small weights). placementOf() folds
+// that working window into the GPU tier - on the card is on the card, one red
+// segment (Bryan, 2026-08-18) - and keeps the streamed share in
+// `place.streamedPart`, which is detail for the tooltip and the sentence, not
+// a tier of its own.
+
+// Normalises whatever the backend gave us for one model into the five tiers.
+// When the per-page probe has not run (old backend, non-Windows, a model that
+// appeared since the last probe) the split ComfyUI itself reports is used and
+// `measured` is false, so every readout can say so rather than implying the
+// off-card bytes were located.
+function placementOf(model) {
+    const p = (model && model.placement) || null;
+    const out = { gpu: 0, ram: 0, pagefile: 0, file: 0, unknown: 0, streamedPart: 0 };
+    if (p && p.measured) {
+        let sum = 0;
+        for (const d of TIER_DEFS) {
+            out[d.key] = Math.max(0, num(p[d.key]));
+            sum += out[d.key];
+        }
+        // The streamer's working window (see the comment above TIER_DEFS'
+        // callers). Only for the model actually running - a stale on_device on
+        // an idle model is history, not placement - and only when it clears
+        // the noise floor: for a conventionally-loaded model on_device and the
+        // walked gpu figure are the same bytes counted two ways and differ by
+        // buffers, not by gigabytes. The staged bytes come out of `file` for
+        // the bar's proportions because that is where the walk counted them;
+        // the sum is unchanged, so the reconcile against model_size() holds.
+        if (model && model.currently_used === true) {
+            const onDev = Math.max(0, num(model.on_device));
+            const staged = Math.min(out.file, Math.max(0, onDev - out.gpu));
+            if (staged > Math.max(32 * 1024 * 1024, num(p.granularity) * 4)) {
+                out.gpu += staged;
+                out.file -= staged;
+                out.streamedPart = staged;
+            }
+        }
+        return {
+            ...out,
+            measured: true,
+            exact: p.exact !== false,
+            granularity: num(p.granularity),
+            total: sum,
+        };
+    }
+    out.gpu = Math.max(0, num(model && model.on_device));
+    out.unknown = Math.max(0, num(model && model.offloaded));
+    return {
+        ...out,
+        measured: false,
+        exact: false,
+        granularity: 0,
+        total: out.gpu + out.unknown,
+    };
+}
+
+// A labeled stacked bar. Four encodings at once, because one is not enough to
+// read a 6px slice: color, a texture (so it survives colorblindness and
+// print), a letter chip, and text that steps down through label -> place +
+// figure -> figure -> chip alone as the slice narrows. The exact figure and the
+// plain-English reason are always in the tooltip.
+function buildTierBar(place) {
+    const bar = document.createElement("div");
+    bar.className = "memxray-tier-bar";
+    const total = Math.max(1, place.total);
+    for (const d of TIER_DEFS) {
+        const v = place[d.key];
+        if (v <= 0) continue;
+        const share = v / total;
+        const pct = `${(share * 100).toFixed(0)}%`;
+        const seg = document.createElement("div");
+        seg.className = `memxray-bar-seg ${d.cls}`;
+        seg.style.flexGrow = String(share);
+        seg.title = `${d.label} - ${human(v)} (${pct}) - ${d.why}`;
+        if (d.key === "gpu" && place.streamedPart > 0) {
+            seg.title += `. ${human(place.streamedPart)} of this is the streamer's working window, `
+                + "refilled from the model file every step - not weights parked for good.";
+        }
+        // No letter chip on the segments (Bryan, 2026-08-18): color + texture
+        // carry the tier, the legend is the key. The chip letters live only in
+        // the legend and the grid headers now.
+        const txt = document.createElement("span");
+        txt.className = "memxray-seg-text";
+        txt.textContent = share > 0.34 ? `${d.label} ${human(v)} - ${pct}`
+            : share > 0.2 ? `${d.short} ${human(v)}`
+            : share > 0.1 ? human(v)
+            : "";
+        seg.appendChild(txt);
+        bar.appendChild(seg);
+    }
+    if (!bar.childElementCount) {
+        const seg = document.createElement("div");
+        seg.className = "memxray-bar-seg memxray-tier-unknown";
+        seg.style.flexGrow = "1";
+        seg.textContent = "nothing measured";
+        bar.appendChild(seg);
+    }
+    return bar;
+}
+
+// The legend both views share: chip, swatch, speed-first label, and the reason
+// in the tooltip. Built fresh per surface (the sidebar tab and the floating
+// panel are two independent DOM trees).
+function buildTierLegend() {
+    const wrap = document.createElement("div");
+    wrap.className = "memxray-tier-legend";
+    for (const d of TIER_DEFS) {
+        const item = document.createElement("span");
+        item.className = "memxray-legend-item";
+        item.title = d.why;
+        const sw = document.createElement("span");
+        sw.className = `memxray-legend-swatch ${d.cls}`;
+        sw.textContent = d.chip;
+        item.appendChild(sw);
+        item.appendChild(document.createTextNode(d.label));
+        wrap.appendChild(item);
+    }
+    return wrap;
+}
+
+// The plain-English read on one model. This is the sentence that answers the
+// question the bars only imply: is any of this model somewhere slow, and how
+// much.
+function placementSentence(model, place, gpus) {
+    const bits = [];
+    if (place.gpu <= 0 && model && model.currently_used === true) {
+        bits.push(`streamed to ${gpuNameFor(model, gpus)} layer by layer, nothing parked in VRAM`);
+    }
+    if (place.gpu > 0 && place.streamedPart > 0) {
+        bits.push(`${human(place.gpu)} on ${gpuNameFor(model, gpus)} - ${human(place.streamedPart)} of that `
+            + "is the streamer's working window, refilled from the model file every step");
+    } else if (place.gpu > 0) {
+        bits.push(`${human(place.gpu)} on ${gpuNameFor(model, gpus)}`);
+    }
+    if (place.ram > 0) bits.push(`${human(place.ram)} in system RAM`);
+    if (place.pagefile > 0) bits.push(`${human(place.pagefile)} out of RAM, pagefile-backed`);
+    if (place.file > 0) bits.push(`${human(place.file)} not loaded, still in the model file`);
+    if (place.unknown > 0) bits.push(`${human(place.unknown)} off the card, not located`);
+    if (!bits.length) return "Nothing measured for this model yet.";
+    const head = bits.length === 1
+        ? bits[0]
+        : `${bits.slice(0, -1).join(", ")} and ${bits[bits.length - 1]}`;
+    let s = `${head}.`;
+    if (!place.measured) {
+        s += " The per-page probe has not run for this model yet, so what is off the card is not located.";
+    } else if (place.pagefile > 0) {
+        s += " Windows may still hold some of that in its cache rather than on the platter - it is measured out of RAM, not measured on disk.";
+    }
+    return s;
+}
 
 // A segmented-track slice: width via flex-grow (so segments always sum to
 // the whole with no pixel math), a title tooltip with the exact figure, and
@@ -833,6 +1066,11 @@ function updateTiersView(surf) {
     const models = (now && now.models) || {};
     const gpus = Array.isArray(models.gpus) ? models.gpus : [];
     const t = surf.tiers;
+
+    // Models first, lanes second. The lanes answer "how full is each tier";
+    // the bars answer the question people actually open the panel with, which
+    // is "where is my model, and is any of it somewhere slow".
+    updateTiersModels(t, models, gpus);
 
     // VRAM lane: one track per card. "used/free" only - there is no way to
     // attribute VRAM to ComfyUI specifically versus any other CUDA context
@@ -898,10 +1136,27 @@ function updateTiersView(surf) {
 
     // Flow rows between the lanes - text only, no rate where the backend
     // gives us none to report.
+    // "Parked in system RAM" was the old wording and it was a guess: most of
+    // what leaves the card is mmap'd file pages that are not in RAM at all.
+    // With the per-page probe the flow row can name the split instead.
+    const pt = models.placement_totals;
     const offloaded = num(models.offloaded_bytes);
-    setFlow(t.flow1, offloaded > 0
-        ? { text: `${human(offloaded)} parked in system RAM`, arrow: "down", tone: "" }
-        : null);
+    if (pt && pt.measured && (num(pt.ram) + num(pt.pagefile) + num(pt.file)) > 0) {
+        const offCard = num(pt.ram) + num(pt.pagefile) + num(pt.file);
+        const parts = [];
+        if (num(pt.ram) > 0) parts.push(`${human(pt.ram)} in RAM`);
+        if (num(pt.pagefile) > 0) parts.push(`${human(pt.pagefile)} out of RAM`);
+        if (num(pt.file) > 0) parts.push(`${human(pt.file)} still in the model file`);
+        setFlow(t.flow1, {
+            text: `${human(offCard)} off the card - ${parts.join(", ")}`,
+            arrow: "down",
+            tone: num(pt.pagefile) > MODEL_SPILL_WARN ? "warn" : "",
+        });
+    } else {
+        setFlow(t.flow1, offloaded > 0
+            ? { text: `${human(offloaded)} off the card, not yet located`, arrow: "down", tone: "" }
+            : null);
+    }
 
     const pfDelta = num(sys.pagefile_delta);
     const ioRead = num(proc.io_read_bytes_sec);
@@ -915,6 +1170,69 @@ function updateTiersView(surf) {
 
     t.foot.textContent = tiersFootText(proc);
     updateTiersRecap(t);
+}
+
+// One labeled bar per loaded model, above the lanes. A model split across two
+// tiers shows as a split bar with both parts named, which is the case the old
+// used/free lanes could not express at all.
+function updateTiersModels(t, models, gpus) {
+    const list = Array.isArray(models.models) ? models.models : [];
+    const totals = models.placement_totals || null;
+
+    if (!list.length) {
+        t.modelsCap.textContent = "none loaded";
+        t.modelBars.replaceChildren(emptyTrackNote("no models loaded"));
+        t.modelsFoot.textContent = "";
+        return;
+    }
+
+    let worst = 0;
+    let streaming = false;
+    t.modelsCap.textContent = list.length === 1 ? "1 model" : `${list.length} models`;
+    t.modelBars.replaceChildren(...list.map((model) => {
+        const place = placementOf(model);
+        worst = Math.max(worst, place.pagefile);
+        // gpu includes the measured working window, so this only fires when
+        // truly nothing on the card could be located for the running model.
+        if (place.gpu <= 0 && model && model.currently_used === true) streaming = true;
+
+        const row = document.createElement("div");
+        row.className = "memxray-model-line";
+
+        const head = document.createElement("div");
+        head.className = "memxray-model-head";
+        const name = document.createElement("span");
+        name.className = "memxray-row-name";
+        name.textContent = (model && model.name) || "unnamed";
+        const size = document.createElement("span");
+        size.className = "memxray-row-size";
+        size.textContent = human(place.total || num(model && model.total));
+        head.appendChild(name);
+        head.appendChild(size);
+
+        const bar = buildTierBar(place);
+        bar.title = placementSentence(model, place, gpus);
+
+        row.appendChild(head);
+        row.appendChild(bar);
+        return row;
+    }));
+
+    if (worst > MODEL_SPILL_WARN) {
+        t.modelsFoot.textContent =
+            `${human(worst)} of one model's weights is out of RAM with only the pagefile behind it - `
+            + "that is the slice that costs wall-clock time when it gets touched.";
+    } else if (streaming) {
+        t.modelsFoot.textContent =
+            "A model in use shows nothing in VRAM because ComfyUI is casting its weights to the card "
+            + "layer by layer. The VRAM lane below is what is really on the card; that number belongs to "
+            + "the whole card, not to one model.";
+    } else if (totals && !totals.measured) {
+        t.modelsFoot.textContent =
+            "Showing ComfyUI's own on-card / off-card split; the per-page probe has not reported yet.";
+    } else {
+        t.modelsFoot.textContent = "";
+    }
 }
 
 // ---- "What's been happening" recap -----------------------------------------
@@ -1084,81 +1402,234 @@ function tiersFootText(proc) {
 
 // --- View B: Models -----------------------------------------------------------
 
+// The ledger is a grid, not a stack of independent rows: the whole question is
+// "which of these is somewhere slow", and that is a column comparison. Rows are
+// models, columns are the four places, and each model also gets its own labeled
+// bar (proportion) and one sentence (the plain reading) underneath.
 function updateModelsView(surf) {
     const now = state._lastNow;
-    const proc = (now && now.proc) || {};
     const models = (now && now.models) || {};
+    const sys = (now && now.sys) || {};
     const modelList = Array.isArray(models.models) ? models.models : [];
     const gpus = Array.isArray(models.gpus) ? models.gpus : [];
+    const totals = models.placement_totals || null;
     const m = surf.models;
 
     if (!modelList.length) {
-        m.ledger.replaceChildren();
+        m.grid.replaceChildren();
         m.empty.style.display = "";
         m.warn.style.display = "none";
+        m.cache.style.display = "none";
+        m.foot.textContent = "";
         return;
     }
     m.empty.style.display = "none";
-    m.ledger.replaceChildren(...modelList.map((model) => buildModelRow(model, gpus)));
 
-    // Per-model pagefile attribution would be a lie - the backend only knows
-    // process-wide eviction, not which model's bytes those were. So this is
-    // one panel-level line, not a per-row figure.
-    const evictedMax = num(proc.evicted_max);
-    const anyOffloaded = modelList.some((model) => num(model.offloaded) > 0);
-    if (evictedMax > MODEL_SPILL_WARN && anyOffloaded) {
-        m.warn.textContent =
-            `Up to ${human(evictedMax)} of ComfyUI's memory is on the pagefile - the parked weights above are what's at risk.`;
+    const cells = [gridCell("", "memxray-grid-head")];
+    for (const d of PLACED_TIERS) cells.push(gridHeadCell(d));
+
+    const sum = { gpu: 0, ram: 0, pagefile: 0, file: 0, unknown: 0 };
+    let anyUnmeasured = false;
+    for (const model of modelList) {
+        const place = placementOf(model);
+        if (!place.measured) anyUnmeasured = true;
+        for (const key of Object.keys(sum)) sum[key] += place[key];
+
+        // Dynamic VRAM (ComfyUI's default now) casts weights to the card per
+        // layer instead of parking them there, so a model can be the one
+        // driving a 100%-busy GPU while none of it is resident in VRAM.
+        // Measured here: card at 9.6 GB and 100% util, every model reporting
+        // on_device 0. A bare "-" in the GPU column would read as "not on the
+        // card at all", which is the opposite of what is happening.
+        const streaming = place.gpu <= 0 && model && model.currently_used === true;
+        cells.push(gridNameCell(model, place));
+        for (const d of PLACED_TIERS) {
+            cells.push(d.key === "gpu" && place.streamedPart > 0
+                ? gridStagedCell(place)
+                : d.key === "gpu" && streaming
+                    ? gridStreamCell()
+                    : gridNumCell(place[d.key], d));
+        }
+
+        const bar = buildTierBar(place);
+        bar.classList.add("memxray-grid-span");
+        cells.push(bar);
+        cells.push(gridCell(
+            placementSentence(model, place, gpus),
+            "memxray-grid-span memxray-grid-note",
+        ));
+    }
+
+    // Totals, then what those totals are competing for. The capacity row is
+    // what turns "2.3 GB on the pagefile" into "2.3 GB of a 67 GB pagefile".
+    cells.push(gridCell("totals", "memxray-grid-total"));
+    for (const d of PLACED_TIERS) cells.push(gridNumCell(sum[d.key], d, "memxray-grid-total"));
+
+    const vramTotal = gpus.reduce((a, g) => a + num(g.total), 0);
+    const caps = {
+        gpu: vramTotal || null,
+        ram: num(sys.phys_total) || null,
+        pagefile: num(sys.pagefile_size) || null,
+        file: null,
+    };
+    cells.push(gridCell("capacity", "memxray-grid-cap-label"));
+    for (const d of PLACED_TIERS) {
+        cells.push(gridCell(
+            caps[d.key] ? human(caps[d.key]) : "-",
+            "memxray-grid-num memxray-grid-cap-label",
+        ));
+    }
+
+    m.grid.replaceChildren(...cells);
+
+    // Now that eviction is measured per model, this line names the amount of
+    // actual model weight that is out of RAM instead of quoting the old
+    // process-wide ceiling and leaving the user to guess whose bytes they were.
+    //
+    // The cross-check matters: a private page that was committed and never
+    // written is also "not in RAM", and no API separates it from one that was
+    // paged out. The whole system pagefile is a hard ceiling on the second
+    // kind, so when the measured total exceeds it the difference is provably
+    // untouched commit - which costs nothing. That is the one misreading this
+    // pack exists to prevent, so it gets said here rather than in the docs.
+    const pfUsed = num(sys.pagefile_used);
+    if (sum.pagefile > MODEL_SPILL_WARN) {
+        let txt = `${human(sum.pagefile)} of loaded model weights is out of RAM with only the pagefile behind it. `
+            + "That is the slice that costs wall-clock time when something touches it.";
+        if (pfUsed > 0 && sum.pagefile > pfUsed) {
+            txt += ` The whole system pagefile only holds ${human(pfUsed)}, so at least `
+                + `${human(sum.pagefile - pfUsed)} of that was committed and never written - it is on no disk anywhere.`;
+        }
+        m.warn.textContent = txt;
         m.warn.style.display = "";
     } else {
         m.warn.style.display = "none";
     }
+
+    // The measured answer on a real MiniMax load is "almost all of it is in the
+    // model file, not in RAM" - which is true, and would read as alarming
+    // without this: Windows' standby cache can serve much of it back at RAM
+    // speed. The cache size is known system-wide, so it can be stated without
+    // pretending to attribute it per model.
+    const standby = num(sys.standby);
+    if (sum.file > GB && standby > 0) {
+        m.cache.textContent =
+            `${human(sum.file)} of weights is not loaded - it lives in the model file until something asks for it. `
+            + `Windows' cache currently holds ${human(standby)}, so some of that comes back at RAM speed rather than off the disk. `
+            + "Neither the cache nor the panel can say which pages those are.";
+        m.cache.style.display = "";
+    } else {
+        m.cache.style.display = "none";
+    }
+
+    m.foot.textContent = placementProvenance(totals, anyUnmeasured);
 }
 
-function buildModelRow(model, gpus) {
-    const row = document.createElement("div");
-    row.className = "memxray-ledger-row";
+// Where these numbers come from, in one line, because "measured" is a claim and
+// the panel should say how.
+function placementProvenance(totals, anyUnmeasured) {
+    if (!totals || !totals.measured) {
+        return "Per-page placement unavailable here - showing the on-card / off-card split ComfyUI reports. "
+            + "The probe needs Windows (QueryWorkingSetEx).";
+    }
+    const gran = num(totals.granularity);
+    const grainTxt = totals.exact
+        ? "every page checked"
+        : `sampled every ${human(gran || 262144)} of address space`;
+    const age = num(totals.probe_age);
+    const ageTxt = age >= 1 ? `${age.toFixed(0)}s ago` : "just now";
+    let s = `Read from Windows per page (${grainTxt}), ${ageTxt}, in ${num(totals.probe_ms).toFixed(0)} ms. `
+        + "Out-of-RAM bytes are measured, and so is what backs them; whether Windows still has a copy "
+        + "in its standby cache is not something any API will tell you.";
+    if (anyUnmeasured) s += " Rows marked not-measured appeared since the last probe.";
+    return s;
+}
 
-    const top = document.createElement("div");
-    top.className = "memxray-row-top";
+function gridCell(text, cls) {
+    const el = document.createElement("div");
+    if (cls) el.className = cls;
+    if (text) el.textContent = text;
+    return el;
+}
+
+function gridHeadCell(def) {
+    const el = document.createElement("div");
+    el.className = "memxray-grid-head memxray-grid-num";
+    el.title = def.why;
+    const chip = document.createElement("b");
+    chip.className = `memxray-legend-swatch ${def.cls}`;
+    chip.textContent = def.chip;
+    el.appendChild(chip);
+    // Break the label at its space ("fastest (GPU)" -> two lines). The grid is
+    // min-width: max-content, and max-content measures text unwrapped - a
+    // one-line header would widen its whole column and stretch the horizontal
+    // scroll for no information gained.
+    const label = document.createElement("span");
+    label.className = "memxray-grid-head-label";
+    label.textContent = def.label.replace(" (", "\n(");
+    el.appendChild(label);
+    return el;
+}
+
+function gridNameCell(model, place) {
+    const el = document.createElement("div");
+    el.className = "memxray-grid-name";
     const name = document.createElement("span");
     name.className = "memxray-row-name";
     name.textContent = (model && model.name) || "unnamed";
     const size = document.createElement("span");
     size.className = "memxray-row-size";
-    size.textContent = human(model && model.total);
-    top.appendChild(name);
-    top.appendChild(size);
-
-    const track = document.createElement("div");
-    track.className = "memxray-row-track";
-    const total = Math.max(1, num(model && model.total));
-    const onDevice = num(model && model.on_device);
-    const offloaded = num(model && model.offloaded);
-    track.replaceChildren(...[
-        buildTierSeg("memxray-seg-vram", onDevice, total, ""),
-        buildTierSeg("memxray-seg-ram", offloaded, total, ""),
-    ].filter(Boolean));
-
-    const chip = document.createElement("span");
-    chip.className = "memxray-chip";
-    const dot = document.createElement("span");
-    dot.className = "memxray-chip-dot";
-    const chipText = document.createElement("span");
-    if (offloaded > 0) {
-        dot.classList.add("memxray-chip-dot-ram");
-        chipText.textContent = `${human(offloaded)} parked in system RAM`;
-    } else {
-        dot.classList.add("memxray-chip-dot-vram");
-        chipText.textContent = `fully on ${gpuNameFor(model, gpus)}`;
+    size.textContent = human(place.total || num(model && model.total));
+    el.appendChild(name);
+    el.appendChild(size);
+    if (!place.measured) {
+        const flag = document.createElement("span");
+        flag.className = "memxray-grid-flag";
+        flag.textContent = "not measured yet";
+        el.appendChild(flag);
     }
-    chip.appendChild(dot);
-    chip.appendChild(chipText);
+    return el;
+}
 
-    row.appendChild(top);
-    row.appendChild(track);
-    row.appendChild(chip);
-    return row;
+// The GPU column when weights are cast per layer: there is no figure to give,
+// and inventing one from the card's total usage would be attribution nobody can
+// support (any CUDA context on the card shares that number).
+// The GPU cell for a model whose streamer has a measured working window on the
+// card: the figure already includes it (placementOf folds it into gpu), styled
+// as streamed so nobody reads it as parked residency that survives the run.
+function gridStagedCell(place) {
+    const el = document.createElement("div");
+    el.className = "memxray-grid-num memxray-grid-stream";
+    el.textContent = human(place.gpu);
+    el.title = `${human(place.streamedPart)} of this is the streamer's working window, refilled `
+        + `from the model file every step; ${human(place.gpu - place.streamedPart)} is parked.`;
+    return el;
+}
+
+function gridStreamCell() {
+    const el = document.createElement("div");
+    el.className = "memxray-grid-num memxray-grid-stream";
+    el.textContent = "streamed";
+    el.title = "ComfyUI casts this model's weights to the card layer by layer, so no fixed "
+        + "slice of it sits in VRAM. What is actually on the card is in the Tiers view - it "
+        + "cannot be split per model.";
+    return el;
+}
+
+// An empty cell says "none of this model is here" - which is information, so it
+// gets a dash rather than a 0 that reads as a rounding artefact.
+function gridNumCell(value, def, extraCls) {
+    const el = document.createElement("div");
+    el.className = `memxray-grid-num ${extraCls || ""}`.trim();
+    const v = num(value);
+    el.textContent = v > 0 ? human(v) : "-";
+    if (v <= 0) {
+        el.classList.add("memxray-grid-none");
+    } else if (def.key === "pagefile") {
+        el.dataset.state = "warn";
+    }
+    el.title = v > 0 ? `${def.label} - ${def.why}` : `nothing of this model is ${def.label}`;
+    return el;
 }
 
 // --- View C: Headroom ---------------------------------------------------------
@@ -1348,6 +1819,9 @@ function injectStyle() {
     --mx-resident-lift: ${COLORS.residentLift};
     --mx-mapped: ${COLORS.mapped};
     --mx-evicted: ${COLORS.evicted};
+    --mx-tier-gpu: ${COLORS.tierGpu};
+    --mx-tier-ram: ${COLORS.tierRam};
+    --mx-tier-pf: ${COLORS.tierPf};
     --mx-critical: ${COLORS.critical};
     --mx-label: ${FONT_LABEL};
     --mx-num: ${FONT_NUM};
@@ -1394,7 +1868,6 @@ function injectStyle() {
 .memxray-verdict-row[data-level="warn"] .memxray-verdict-head { color: var(--mx-evicted); }
 .memxray-verdict-row[data-level="alarm"] .memxray-verdict-head { color: var(--mx-critical); }
 .memxray-verdict-text { font-size: 12.5px; color: var(--mx-ink); }
-.memxray-dot { display: none; }
 
 /* --- hero + density strip: the signature ------------------------------- */
 .memxray-hero { display: flex; align-items: baseline; gap: 10px; }
@@ -1665,32 +2138,149 @@ function injectStyle() {
 .memxray-flow-rate { font-family: var(--mx-num); font-variant-numeric: tabular-nums; margin-left: 2px; }
 .memxray-flow-arrow { font-size: 12px; line-height: 1; }
 
-/* --- View B: Models --------------------------------------------------------- */
-.memxray-ledger { display: flex; flex-direction: column; gap: 11px; }
-.memxray-ledger-row { display: flex; flex-direction: column; }
-.memxray-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+/* --- the four places, shared by Tiers and Models -------------------------- */
+/* Every tier gets a color AND a texture AND a letter chip. One channel is not
+   enough: a 6px slice has no room for text, colorblind readers lose the hue,
+   and the pagefile tier must never be mistaken for the model-file tier - they
+   look similar and mean opposite things about how slow it is to get back. */
+.memxray-tier-bar {
+    display: flex;
+    height: 26px;
+    gap: 2px;
+    background: var(--mx-plate);
+    border: 1px solid var(--mx-line);
+    border-radius: 3px;
+    padding: 3px;
+}
+.memxray-bar-seg {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    overflow: hidden;
+    border-radius: 2px;
+    padding: 0 4px;
+    font-size: 10.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: #071014;
+    transition: flex-grow 300ms ease;
+}
+.memxray-seg-text { overflow: hidden; text-overflow: ellipsis; }
+/* Heat ramp, one hue per tier: red = fastest, orange = fast, yellow = slow.
+   See the COLORS block for why these are not the resident cyans. */
+.memxray-tier-gpu { background: var(--mx-tier-gpu); }
+.memxray-tier-ram {
+    background: var(--mx-tier-ram);
+    background-image: repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.17) 0 2px, transparent 2px 6px);
+}
+.memxray-tier-pf {
+    background: var(--mx-tier-pf);
+    background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.28) 0 3px, transparent 3px 7px);
+}
+.memxray-tier-file {
+    background: var(--mx-mapped);
+    background-image: repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.18) 0 2px, transparent 2px 8px);
+}
+.memxray-tier-unknown {
+    background: var(--mx-raised);
+    color: var(--mx-ink-3);
+    border: 1px dashed var(--mx-line);
+}
+.memxray-tier-legend { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 11px; color: var(--mx-ink-2); }
+.memxray-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.memxray-legend-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    display: inline-grid;
+    place-items: center;
+    font-size: 9px;
+    font-weight: 700;
+    font-style: normal;
+    color: #071014;
+    flex: none;
+}
+.memxray-model-lines { display: flex; flex-direction: column; gap: 9px; }
+.memxray-model-line { display: flex; flex-direction: column; gap: 3px; }
+.memxray-model-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .memxray-row-name { font-size: 13.5px; font-weight: 600; color: var(--mx-ink); }
 .memxray-row-size { font-family: var(--mx-num); font-size: 11.5px; color: var(--mx-ink-3); }
-.memxray-row-track {
-    display: flex;
-    height: 9px;
-    gap: 2px;
-    margin-top: 5px;
-    border-radius: 2px;
-    overflow: hidden;
-    background: var(--mx-plate);
+
+/* --- View B: Models - rows are models, columns are the four places -------- */
+.memxray-grid-scroll { overflow-x: auto; }
+.memxray-grid {
+    display: grid;
+    grid-template-columns: minmax(112px, 1.6fr) repeat(4, minmax(62px, auto));
+    gap: 3px 10px;
+    align-items: baseline;
+    /* max-content, not a fixed px: the grid's own box must be at least as wide
+       as its tracks, or the tracks overflow the box and the sticky full-width
+       rows below get a containing block narrower than the content - which
+       silently caps how far they can slide and un-pins them mid-scroll. */
+    min-width: max-content;
 }
-.memxray-row-track .memxray-tier-seg { border-radius: 0; font-size: 0; padding: 0; }
-.memxray-seg-vram { background: var(--mx-resident-lift); }
-.memxray-seg-ram { background: var(--mx-mapped); }
-.memxray-chip { display: inline-flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; color: var(--mx-ink-2); }
-.memxray-chip-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
-.memxray-chip-dot-vram { background: var(--mx-resident-lift); }
-.memxray-chip-dot-ram { background: var(--mx-mapped); }
-.memxray-ledger-keys { display: flex; flex-wrap: wrap; gap: 5px 14px; font-size: 11.5px; color: var(--mx-ink-2); }
-.memxray-swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
-.memxray-swatch-vram { background: var(--mx-resident-lift); }
-.memxray-swatch-ram { background: var(--mx-mapped); }
+.memxray-grid-head {
+    font-family: var(--mx-label);
+    font-size: 9.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--mx-ink-3);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    text-align: right;
+}
+.memxray-grid-head-label { white-space: pre-line; }
+.memxray-grid-num {
+    font-family: var(--mx-num);
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    color: var(--mx-ink);
+}
+.memxray-grid-num[data-state="warn"] { color: var(--mx-evicted); }
+/* A dash, not a 0: "none of this model is here" is an answer, and a zero reads
+   as a rounded-away small number. */
+.memxray-grid-none { color: var(--mx-ink-3); }
+/* "streamed" is not a figure, so it does not get the numeric face. */
+.memxray-grid-stream { font-family: var(--mx-label); font-size: 11px; font-style: italic; color: var(--mx-mapped); }
+.memxray-grid-name { display: flex; flex-direction: column; gap: 1px; padding-top: 7px; }
+.memxray-grid-flag { font-size: 10px; color: var(--mx-ink-3); }
+/* Full-width rows (the placement bar and the sentence under it) would
+   otherwise be as wide as the whole grid, which is wider than the panel when
+   the numeric columns overflow - so the sentence got cut mid-word and only
+   scrolling revealed the rest. Pinning them to the scrollport's left edge and
+   sizing them to its visible width (--mx-grid-vw, kept current by a
+   ResizeObserver on the scroll box) keeps bar and sentence fully readable
+   while the columns above them still scroll. */
+.memxray-grid-span {
+    grid-column: 1 / -1;
+    position: sticky;
+    left: 0;
+    width: var(--mx-grid-vw, 100%);
+    box-sizing: border-box;
+}
+.memxray-grid .memxray-tier-bar { height: 22px; margin-top: 3px; }
+.memxray-grid-note {
+    font-size: 11.5px;
+    color: var(--mx-ink-2);
+    line-height: 1.4;
+    padding: 2px 0 9px;
+    border-bottom: 1px solid var(--mx-line);
+}
+.memxray-grid-total {
+    font-family: var(--mx-label);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--mx-ink-2);
+    padding-top: 4px;
+}
+.memxray-grid-num.memxray-grid-total { font-family: var(--mx-num); letter-spacing: 0; text-transform: none; color: var(--mx-ink); }
+.memxray-grid-cap-label { color: var(--mx-ink-3); font-size: 11px; }
+.memxray-grid-prov { color: var(--mx-ink-3); font-size: 11px; }
 .memxray-ledger-empty { color: var(--mx-ink-3); }
 .memxray-ledger-warn { color: var(--mx-evicted); }
 
@@ -1817,10 +2407,14 @@ function injectStyle() {
 .memxray-float-close:hover { color: #e2564a; }
 .memxray-float-body { flex: 1; min-height: 0; }
 
+/* Top right, not bottom right: the bottom right is where ComfyUI parks its own
+   canvas toolbar (select / fit / zoom), and a fixed button there sat on top of
+   those controls. This button only exists at all on builds with no sidebar tab
+   - see the registration block. */
 .memxray-toggle-btn {
     position: fixed;
     right: 12px;
-    bottom: 12px;
+    top: 8px;
     z-index: 9998;
     background: #12161b;
     border: 1px solid #232b34;
@@ -1836,7 +2430,7 @@ function injectStyle() {
 .memxray-toggle-btn:hover { color: #e4eaf0; border-color: #5f6d7a; }
 
 @media (prefers-reduced-motion: reduce) {
-    .memxray-seg, .memxray-tier-seg { transition: none; }
+    .memxray-seg, .memxray-tier-seg, .memxray-bar-seg { transition: none; }
 }
 `;
     document.head.appendChild(style);
@@ -1869,9 +2463,6 @@ function buildSurface(container) {
     verdictBody.appendChild(verdictHead);
     verdictBody.appendChild(verdictText);
     verdictRow.appendChild(verdictBody);
-    const dot = document.createElement("span"); // kept for older callers; hidden by CSS
-    dot.className = "memxray-dot";
-    verdictRow.appendChild(dot);
 
     // Hero: one number answers the question. Eight equal tiles answered none.
     const hero = document.createElement("div");
@@ -1957,11 +2548,6 @@ function buildSurface(container) {
         pagefileTrend: makeReadout("trend"),
         hardReads: makeReadout("hard faults"),
     };
-    // kept so updateHeaderCommon/updateDetailsTiles can address them uniformly
-    tiles.inRam = { value: heroFigure, sub: heroAside, note: heroAside };
-    tiles.pagedOut = { value: keys.untouched.value, sub: heroAside, note: heroAside };
-    tiles.evictedMax = { value: keys.evicted.value, sub: heroAside };
-    tiles.mapped = { value: keys.mapped.value, sub: heroAside };
 
     const modelsLine = document.createElement("div");
     modelsLine.className = "memxray-models-line";
@@ -2086,7 +2672,27 @@ function buildSurface(container) {
         return { lane, capValue };
     }
 
-    const vramLane = makeLane("VRAM");
+    // Per-model placement, above the lanes: one labeled bar per model, so a
+    // model living half on the card and half in RAM reads as exactly that.
+    const modelsBlock = document.createElement("div");
+    modelsBlock.className = "memxray-tier";
+    const modelsHead = document.createElement("div");
+    modelsHead.className = "memxray-cap";
+    const modelsHeadName = document.createElement("span");
+    modelsHeadName.textContent = "Where each model is";
+    const modelsCap = document.createElement("i");
+    modelsHead.appendChild(modelsHeadName);
+    modelsHead.appendChild(modelsCap);
+    const modelBars = document.createElement("div");
+    modelBars.className = "memxray-model-lines";
+    const tiersModelsFoot = document.createElement("p");
+    tiersModelsFoot.className = "memxray-foot memxray-ledger-warn";
+    modelsBlock.appendChild(modelsHead);
+    modelsBlock.appendChild(modelBars);
+    modelsBlock.appendChild(buildTierLegend());
+    modelsBlock.appendChild(tiersModelsFoot);
+
+    const vramLane = makeLane("VRAM - on the graphics card (fastest)");
     const vramTracks = document.createElement("div");
     vramTracks.className = "memxray-gpu-rows";
     vramLane.lane.appendChild(vramTracks);
@@ -2094,7 +2700,7 @@ function buildSurface(container) {
     const flow1 = document.createElement("div");
     flow1.className = "memxray-flow is-idle";
 
-    const ramLane = makeLane("System RAM");
+    const ramLane = makeLane("System RAM (fast)");
     const ramTrack = document.createElement("div");
     ramTrack.className = "memxray-tier-track";
     ramLane.lane.appendChild(ramTrack);
@@ -2102,7 +2708,7 @@ function buildSurface(container) {
     const flow2 = document.createElement("div");
     flow2.className = "memxray-flow is-idle";
 
-    const pfLane = makeLane("Pagefile");
+    const pfLane = makeLane("Pagefile - on disk (slow)");
     const pfTrack = document.createElement("div");
     pfTrack.className = "memxray-tier-track";
     pfLane.lane.appendChild(pfTrack);
@@ -2148,6 +2754,7 @@ function buildSurface(container) {
     recapFoot.className = "memxray-foot";
     recap.appendChild(recapFoot);
 
+    viewTiers.appendChild(modelsBlock);
     viewTiers.appendChild(vramLane.lane);
     viewTiers.appendChild(flow1);
     viewTiers.appendChild(ramLane.lane);
@@ -2157,26 +2764,28 @@ function buildSurface(container) {
     viewTiers.appendChild(recap);
 
     // --- View B: Models -----------------------------------------------------
-    // One row per loaded model - the unit ComfyUI users already think in,
-    // instead of raw byte totals.
+    // Rows are models, columns are the four places a byte can be. A column is
+    // the comparison people want ("which of these is on disk?"), which a stack
+    // of independent rows cannot give.
     const viewModels = document.createElement("div");
     viewModels.className = "memxray-view memxray-view-models";
     viewModels.setAttribute("role", "tabpanel");
 
-    const ledger = document.createElement("div");
-    ledger.className = "memxray-ledger";
+    const modelsScroll = document.createElement("div");
+    modelsScroll.className = "memxray-grid-scroll";
+    const grid = document.createElement("div");
+    grid.className = "memxray-grid";
+    modelsScroll.appendChild(grid);
 
-    const ledgerKeys = document.createElement("div");
-    ledgerKeys.className = "memxray-ledger-keys";
-    for (const [cls, label] of [["memxray-swatch-vram", "VRAM"], ["memxray-swatch-ram", "RAM"]]) {
-        const item = document.createElement("span");
-        item.className = "memxray-key";
-        const sw = document.createElement("span");
-        sw.className = `memxray-swatch ${cls}`;
-        item.appendChild(sw);
-        item.appendChild(document.createTextNode(label));
-        ledgerKeys.appendChild(item);
-    }
+    // Feeds --mx-grid-vw (see .memxray-grid-span CSS): the sticky full-width
+    // rows need the scrollport's visible width, which CSS alone cannot name.
+    // Width is 0 while the Models view is hidden - skip that reading; the
+    // observer fires again when the view is shown and the box gets its size.
+    const gridWidthObserver = new ResizeObserver(() => {
+        const w = modelsScroll.clientWidth;
+        if (w > 0) grid.style.setProperty("--mx-grid-vw", `${w}px`);
+    });
+    gridWidthObserver.observe(modelsScroll);
 
     const modelsEmpty = document.createElement("p");
     modelsEmpty.className = "memxray-foot memxray-ledger-empty";
@@ -2187,10 +2796,19 @@ function buildSurface(container) {
     modelsWarn.className = "memxray-foot memxray-ledger-warn";
     modelsWarn.style.display = "none";
 
-    viewModels.appendChild(ledger);
-    viewModels.appendChild(ledgerKeys);
+    const modelsCache = document.createElement("p");
+    modelsCache.className = "memxray-foot";
+    modelsCache.style.display = "none";
+
+    const modelsFoot = document.createElement("p");
+    modelsFoot.className = "memxray-foot memxray-grid-prov";
+
+    viewModels.appendChild(modelsScroll);
+    viewModels.appendChild(buildTierLegend());
     viewModels.appendChild(modelsEmpty);
     viewModels.appendChild(modelsWarn);
+    viewModels.appendChild(modelsCache);
+    viewModels.appendChild(modelsFoot);
 
     // --- View C: Headroom -----------------------------------------------
     // One predictive number: how much RAM is left before Windows starts
@@ -2349,7 +2967,7 @@ function buildSurface(container) {
 
     const surf = {
         id, root, canvas, ctx,
-        verdictDot: dot, verdictText, verdictRow, verdictHead,
+        verdictText, verdictRow, verdictHead,
         heroFigure, heroLabel, heroAside,
         segs, keys, tip,
         tiles, modelsLine, caveat,
@@ -2357,6 +2975,7 @@ function buildSurface(container) {
         activeView: state.activeView,
         applyView,
         tiers: {
+            modelsCap, modelBars, modelsFoot: tiersModelsFoot,
             vramCap: vramLane.capValue, vramTracks,
             ramCap: ramLane.capValue, ramTrack,
             pfCap: pfLane.capValue, pfTrack,
@@ -2364,7 +2983,10 @@ function buildSurface(container) {
             recapCap, recapTight, recapPagefile, recapDisk, recapNow,
             recapFoot,
         },
-        models: { ledger, empty: modelsEmpty, warn: modelsWarn },
+        models: {
+            grid, empty: modelsEmpty, warn: modelsWarn,
+            cache: modelsCache, foot: modelsFoot,
+        },
         headroom: {
             figure: hrFigure, figureLabel: hrFigureLabel,
             mark: hrMark, gaugeTrack: hrGauge,
@@ -2520,25 +3142,25 @@ app.registerExtension({
         },
     ],
 
-    keybindings: [
-        {
-            commandId: "MemXray.TogglePanel",
-            combo: { key: "m", alt: true },
-        },
-    ],
-
     async setup() {
         injectStyle();
 
-        // Always provide the floating panel + toggle button, regardless of
-        // whether a sidebar tab is also available.
+        // The floating panel always exists (Alt+M and the command palette open
+        // it). The floating BUTTON does not: on builds with a sidebar tab it is
+        // a third way to reach the same thing, and it sat over ComfyUI's canvas
+        // toolbar in the bottom-right corner. Sidebar first, button only as the
+        // fallback for builds that have no sidebar to put an icon in.
         floatingPanelApi = createFloatingPanel();
-        createToggleButton(() => floatingPanelApi.toggle());
+        const hasSidebar = !!(app.extensionManager
+            && typeof app.extensionManager.registerSidebarTab === "function");
+        if (!hasSidebar) createToggleButton(() => floatingPanelApi.toggle());
 
-        // The declarative `keybindings` block above only binds on ComfyUI
-        // builds that expose a keybinding store; this one registers the
-        // command but never wires the combo, so Alt+M did nothing. A plain
-        // listener is the portable path. Ignored while typing in a field.
+        // Alt+M via a plain listener, not a declarative `keybindings` entry:
+        // ComfyUI builds differ in whether registerExtension keybindings get
+        // wired, and declaring the combo AND listening here would fire the
+        // toggle twice on builds where both work. The command above stays
+        // registered so the palette (and user rebinding) still reach it.
+        // Ignored while typing in a field.
         window.addEventListener("keydown", (e) => {
             if (!e.altKey || e.ctrlKey || e.metaKey) return;
             if ((e.key || "").toLowerCase() !== "m") return;
@@ -2549,9 +3171,10 @@ app.registerExtension({
             if (floatingPanelApi) floatingPanelApi.toggle();
         });
 
-        // Sidebar tab is a bonus surface when the host ComfyUI build
-        // supports it; older builds simply skip this block.
-        if (app.extensionManager && typeof app.extensionManager.registerSidebarTab === "function") {
+        // Sidebar tab: the primary way in on any build that has one - it lives
+        // in the left nav with everything else instead of floating over the
+        // canvas. Older builds skip this and get the top-right button above.
+        if (hasSidebar) {
             let sidebarSurf = null;
             app.extensionManager.registerSidebarTab({
                 id: "memxray",

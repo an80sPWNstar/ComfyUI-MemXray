@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 import threading
 import time
 from collections import deque
 from typing import Optional
 
-from . import comfy_probe, winmem
+from . import comfy_probe, placement, winmem
 
 log = logging.getLogger("MemXray")
 
@@ -28,12 +29,24 @@ PAGED_OUT_ALARM = 2 * 1024 * 1024 * 1024
 HARD_FAULT_WARN = 50.0    # page reads/sec, system wide
 HARD_FAULT_ALARM = 300.0
 
+# How long the verdict must sit at a LOWER level before the reported level is
+# allowed to drop. Without this the level flips alarm/warn/mapped every few
+# seconds under load and the panel strobes; escalation is still immediate.
+VERDICT_HOLD_SECONDS = 10.0
+LEVEL_RANK = {"ok": 0, "mapped": 1, "warn": 2, "alarm": 3}
+
 
 class Sampler:
     def __init__(self):
         self.history: deque = deque(maxlen=HISTORY_SECONDS)
         self.markers: deque = deque(maxlen=200)
         self.lock = threading.Lock()
+        # sample() mutates rate/peak state (_prev_pagefile, _peak_paged_out,
+        # _model_cache), and it is called both by the background thread and
+        # on demand from HTTP/node threads before the first tick - so those
+        # mutations are serialized separately from the history lock.
+        self._sample_lock = threading.Lock()
+        self._start_lock = threading.Lock()
         self.started_at = time.time()
         self.pid = os.getpid()
         self.process_name = "python"
@@ -47,12 +60,18 @@ class Sampler:
         self._model_cache_at = 0.0
         self._prev_pagefile: Optional[float] = None
         self._prev_t: Optional[float] = None
+        self._held_verdict: Optional[dict] = None
+        self._below_since: Optional[float] = None
 
     # -- lifecycle --------------------------------------------------------
 
     def start(self) -> None:
-        if self._thread is not None:
-            return
+        with self._start_lock:
+            if self._thread is not None:
+                return
+            self._start()
+
+    def _start(self) -> None:
         try:
             import psutil
 
@@ -61,7 +80,7 @@ class Sampler:
             )[0]
         except Exception:
             self.process_name = os.path.splitext(
-                os.path.basename(getattr(__import__("sys"), "executable", "python"))
+                os.path.basename(sys.executable or "python")
             )[0]
 
         self._pdh = winmem.PdhSession(self.pid, self.process_name)
@@ -122,6 +141,10 @@ class Sampler:
     # -- one snapshot -----------------------------------------------------
 
     def sample(self) -> dict:
+        with self._sample_lock:
+            return self._sample()
+
+    def _sample(self) -> dict:
         now = time.time()
         pdh = self._pdh.collect() if (self._pdh and self._pdh.ok) else {}
         gms = winmem.global_memory_status() or {}
@@ -226,8 +249,25 @@ class Sampler:
             },
             "models": models,
         }
-        snap["verdict"] = verdict(snap)
+        snap["verdict"] = self._settled_verdict(verdict(snap), now)
         return snap
+
+    def _settled_verdict(self, raw: dict, now: float) -> dict:
+        """Hysteresis: escalate immediately, de-escalate only after the raw
+        level has stayed lower for VERDICT_HOLD_SECONDS. Stops the reported
+        level strobing alarm/warn/mapped every few seconds under load."""
+        held = self._held_verdict
+        if held is None or LEVEL_RANK.get(raw["level"], 0) >= LEVEL_RANK.get(held["level"], 0):
+            self._held_verdict = raw
+            self._below_since = None
+            return raw
+        if self._below_since is None:
+            self._below_since = now
+        if now - self._below_since >= VERDICT_HOLD_SECONDS:
+            self._held_verdict = raw
+            self._below_since = None
+            return raw
+        return held
 
     def _models(self, now: float) -> dict:
         """Model introspection walks ComfyUI structures, so it is throttled to
@@ -236,6 +276,10 @@ class Sampler:
             self._model_cache = comfy_probe.model_summary()
             self._model_cache["gpus"] = comfy_probe.torch_devices()
             self._model_cache_at = now
+        # Per-model placement (which tier each model's bytes are actually in)
+        # carries its own, slower throttle: the tensor walk plus per-page probes
+        # cost far more than a PDH read. Cheap when it serves the cache.
+        placement.PLACEMENT.annotate(self._model_cache, now)
         return self._model_cache
 
     # -- accessors --------------------------------------------------------
@@ -303,10 +347,22 @@ def verdict(snap: dict) -> dict:
     pagefile_growing = snap["sys"].get("pagefile_delta", 0.0) > 1024 * 1024
 
     if reads >= HARD_FAULT_ALARM:
-        if pagefile_growing or evicted >= PAGED_OUT_ALARM:
+        # Only a growing pagefile earns the alarm. Accepting a large
+        # evicted_max as an alternative latches: the pagefile does not shrink
+        # promptly after a heavy run, so every later read spike - including
+        # mapped-file loads on an idle machine - would keep reporting
+        # "pagefile in play" for hours. Measured on the 2026-08-14 session:
+        # that route produced 470 of 883 alarms, all false; requiring growth
+        # keeps every genuinely-attributed one.
+        if pagefile_growing:
             return {
                 "level": "alarm",
-                "text": f"PAGEFILE - heavy hard faulting ({reads:.0f} reads/s) with the pagefile in play",
+                "text": f"PAGEFILE - heavy hard faulting ({reads:.0f} reads/s) while the pagefile is growing",
+            }
+        if evicted >= PAGED_OUT_ALARM:
+            return {
+                "level": "warn",
+                "text": f"DISK - heavy hard faulting ({reads:.0f} reads/s); up to {gb(evicted)} sits on the pagefile but it is not growing - reading back evicted memory or mapped model files",
             }
         return {
             "level": "warn",

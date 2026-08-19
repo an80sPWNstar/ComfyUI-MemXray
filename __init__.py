@@ -13,7 +13,6 @@ import logging
 import os
 
 log = logging.getLogger("MemXray")
-logging.basicConfig(level=logging.INFO)
 
 WEB_DIRECTORY = "./web"
 

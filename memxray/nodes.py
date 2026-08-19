@@ -169,7 +169,7 @@ class MemXrayChart:
             "required": {
                 "seconds": ("INT", {"default": 300, "min": 10, "max": 900, "step": 10}),
                 "width": ("INT", {"default": 1200, "min": 480, "max": 4096, "step": 8}),
-                "height": ("INT", {"default": 720, "min": 320, "max": 2160, "step": 8}),
+                "height": ("INT", {"default": 720, "min": 480, "max": 2160, "step": 8}),
             },
         }
 

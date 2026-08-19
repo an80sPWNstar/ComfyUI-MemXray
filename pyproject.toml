@@ -2,11 +2,14 @@
 name = "comfyui-memxray"
 version = "0.1.0"
 description = "Shows whether ComfyUI's cached model weights are resident in RAM or evicted to the pagefile."
-license = { text = "MIT" }
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = ["psutil"]
+classifiers = ["Operating System :: Microsoft :: Windows"]
+
+[project.urls]
+Repository = "https://github.com/an80sPWNstar/ComfyUI-MemXray"
 
 [tool.comfy]
 PublisherId = "an80sPWNstar"
 DisplayName = "ComfyUI Mem X-Ray"
-Repository = "https://github.com/an80sPWNstar/ComfyUI-MemXray"

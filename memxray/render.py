@@ -101,11 +101,23 @@ def render_chart(history: list[dict], markers: list[dict], static: dict,
     d.text((24, 80), line2, font=f_s, fill=DIM)
 
     left, right = 70, width - 24
-    panels = [
-        (108, 300, "ComfyUI process private memory"),
-        (318, 470, "System physical RAM composition"),
-        (488, 600, "Hard faults (pages read from disk / sec)"),
-    ]
+    # Layout scales with the requested height: fixed header and footer, the
+    # three plot panels split what remains 42/33/25 (the same proportions as
+    # the default 720px render).
+    header_h = 108
+    footer_h = 24 + 17 * 4 + 28  # models summary + up to 4 rows + bottom line
+    gap = 18
+    avail = max(90, height - header_h - footer_h - 2 * gap)
+    h1 = round(avail * 0.42)
+    h2 = round(avail * 0.33)
+    h3 = avail - h1 - h2
+    y = header_h
+    panels = []
+    for h_px, title in ((h1, "ComfyUI process private memory"),
+                        (h2, "System physical RAM composition"),
+                        (h3, "Hard faults (pages read from disk / sec)")):
+        panels.append((y, y + h_px, title))
+        y += h_px + gap
     for (y0, y1, title) in panels:
         _panel(d, (left, y0, right, y1), title, f_s)
 
@@ -159,7 +171,7 @@ def render_chart(history: list[dict], markers: list[dict], static: dict,
     # history a per-sample line is a single pixel and the panel reads as empty.
     y0, y1 = panels[1][0], panels[1][1]
     total = max(1, last["sys"]["phys_total"])
-    h_px = y1 - y0 - 24
+    h_px = max(4, y1 - y0 - 24)
     xs = [_x_for(i, n, left + 1, right - 1) for i in range(n)]
     lower = [float(y1 - 2)] * n
     for key, color in (("in_use", INUSE), ("modified", PAGED),
@@ -182,7 +194,7 @@ def render_chart(history: list[dict], markers: list[dict], static: dict,
     # ---- panel 3: hard faults ------------------------------------------
     y0, y1 = panels[2][0], panels[2][1]
     fpeak = max(1.0, max(h["faults"]["page_reads_sec"] for h in history))
-    fh = y1 - y0 - 24
+    fh = max(4, y1 - y0 - 24)
     bw = max(1.0, (right - left - 2) / max(1, n)) * 0.9
     for i, h in enumerate(history):
         val = h["faults"]["page_reads_sec"]
@@ -199,7 +211,7 @@ def render_chart(history: list[dict], markers: list[dict], static: dict,
     marker_lines()
 
     # ---- footer: loaded models -----------------------------------------
-    y = 616
+    y = panels[2][1] + 16
     models = last.get("models", {})
     d.text((24, y), f"Loaded models: {models.get('count', 0)}   "
                     f"on device {human(models.get('on_device_bytes', 0))}   "

@@ -4,8 +4,11 @@ RAM, the pagefile and VRAM, straight into sqlite.
 Runs OUTSIDE ComfyUI on purpose. ComfyUI dying is the most interesting moment
 in a trace, so the recorder must outlive it: the system, pagefile and GPU
 numbers all come from this process, and only the model ledger, the torch
-allocator figures and the verdict are fetched over HTTP. Every sample is
-committed, so a hard reset loses at most one row.
+allocator figures and the verdict are fetched over HTTP. Samples are committed
+in batches (--commit-every, default 30 s) because per-sample commits made this
+recorder the biggest writer on the box (~2 GB/h against 25 MB of DB growth);
+a hard reset loses at most one batch. Events still commit immediately - they
+mark the moments worth keeping.
 
     python analysis/collect.py --label h3-run --interval 1
 """
@@ -337,31 +340,38 @@ def top_processes(limit: int, always: set) -> list[dict]:
 
 def write_sample(conn, session_id, seq, ts, sysrow, gpu_rows, gpu_proc_rows,
                  proc_rows, pagefile_rows, model_rows, disk_rows=()) -> int:
-    """One sample and its children, committed before returning."""
+    """One sample and its children, left uncommitted - the caller batches
+    commits. A savepoint keeps a half-written sample from riding into the
+    batch if an insert throws partway through."""
+    conn.execute("SAVEPOINT samp")
     cur = conn.cursor()
-    cols = sorted(sysrow)
-    sql = "INSERT INTO rec_samples (session_id, ts, seq, %s) VALUES (?, ?, ?, %s)" % (
-        ", ".join(cols), ", ".join("?" * len(cols))
-    )
-    cur.execute(sql, [session_id, ts, seq] + [sysrow[c] for c in cols])
-    sample_id = cur.lastrowid
+    try:
+        cols = sorted(sysrow)
+        sql = "INSERT INTO rec_samples (session_id, ts, seq, %s) VALUES (?, ?, ?, %s)" % (
+            ", ".join(cols), ", ".join("?" * len(cols))
+        )
+        cur.execute(sql, [session_id, ts, seq] + [sysrow[c] for c in cols])
+        sample_id = cur.lastrowid
 
-    for table, rows in (
-        ("rec_gpus", gpu_rows),
-        ("rec_gpu_procs", gpu_proc_rows),
-        ("rec_procs", proc_rows),
-        ("rec_pagefiles", pagefile_rows),
-        ("rec_models", model_rows),
-        ("rec_disks", disk_rows),
-    ):
-        for row in rows or ():
-            rcols = sorted(row)
-            rsql = "INSERT INTO %s (sample_id, %s) VALUES (?, %s)" % (
-                table, ", ".join(rcols), ", ".join("?" * len(rcols))
-            )
-            cur.execute(rsql, [sample_id] + [row[c] for c in rcols])
-
-    conn.commit()  # an uncommitted sample does not survive a reset
+        for table, rows in (
+            ("rec_gpus", gpu_rows),
+            ("rec_gpu_procs", gpu_proc_rows),
+            ("rec_procs", proc_rows),
+            ("rec_pagefiles", pagefile_rows),
+            ("rec_models", model_rows),
+            ("rec_disks", disk_rows),
+        ):
+            for row in rows or ():
+                rcols = sorted(row)
+                rsql = "INSERT INTO %s (sample_id, %s) VALUES (?, %s)" % (
+                    table, ", ".join(rcols), ", ".join("?" * len(rcols))
+                )
+                cur.execute(rsql, [sample_id] + [row[c] for c in rcols])
+    except Exception:
+        conn.execute("ROLLBACK TO samp")
+        conn.execute("RELEASE samp")
+        raise
+    conn.execute("RELEASE samp")
     return sample_id
 
 

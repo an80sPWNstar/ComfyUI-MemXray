@@ -699,6 +699,175 @@ def pagefile_instances() -> dict[str, dict]:
             pass
 
 
+# --------------------------------------------------------------------------
+# Per-page residency: where one named byte range actually lives
+# --------------------------------------------------------------------------
+# Everything above is process-wide. Those counters can say 6 GB of this process
+# is not in RAM; they cannot say which allocation the 6 GB belonged to, and
+# there is no per-process pagefile counter at all - \Process\Page File Bytes is
+# commit charge, not disk. Two calls close both gaps for a range we can name:
+#
+#   VirtualQuery      - is this region private (its only backing store is the
+#                       pagefile) or a mapped file (it evicts back to the
+#                       .safetensors it came from)? Exact, not inferred.
+#   QueryWorkingSetEx - per page, is it in this process's working set?
+#
+# What this still cannot tell you: a page that has left the working set may be
+# physically in RAM on the standby/modified list rather than on disk. No
+# user-mode API exposes that per page, so callers must say "out of RAM, backed
+# by <store>" and not "on disk".
+#
+# QueryWorkingSetEx takes an array of addresses the CALLER fills in, so a large
+# range can be probed at a stride instead of page by page: 6 GB at 4 KB
+# granularity needs a 25 MB buffer, at 256 KB granularity 393 KB. Weights are
+# contiguous and eviction happens in long runs, so the stride reads the same
+# answer far cheaper.
+
+MEM_COMMIT = 0x1000
+MEM_PRIVATE = 0x20000
+MEM_MAPPED = 0x40000
+MEM_IMAGE = 0x1000000
+
+# Default probe granularity and the ceiling on points per call.
+RESIDENCY_GRANULARITY = 256 * 1024
+RESIDENCY_MAX_POINTS = 8192
+_WS_CHUNK = 4096  # entries per QueryWorkingSetEx call
+
+_WS_VALID_BIT = 0x1
+
+
+class MEMORY_BASIC_INFORMATION(ctypes.Structure):
+    # PartitionId is Windows 10 2004+; it sits in padding that already existed
+    # on 64-bit, so naming it does not change the struct size.
+    _fields_ = [
+        ("BaseAddress", ctypes.c_void_p),
+        ("AllocationBase", ctypes.c_void_p),
+        ("AllocationProtect", wintypes.DWORD),
+        ("PartitionId", wintypes.WORD),
+        ("_pad", wintypes.WORD),
+        ("RegionSize", ctypes.c_size_t),
+        ("State", wintypes.DWORD),
+        ("Protect", wintypes.DWORD),
+        ("Type", wintypes.DWORD),
+    ]
+
+
+class PSAPI_WORKING_SET_EX_INFORMATION(ctypes.Structure):
+    # VirtualAttributes is a bitfield union; only bit 0 (Valid) is used here,
+    # so it is carried as a plain word rather than modelled field by field.
+    _fields_ = [
+        ("VirtualAddress", ctypes.c_void_p),
+        ("VirtualAttributes", ctypes.c_ulonglong),
+    ]
+
+
+_query_working_set_ex = None
+
+
+def _init_residency_protos() -> None:
+    """Prototypes for the two residency calls. Same rule as OpenProcess above:
+    without an explicit restype ctypes truncates SIZE_T to int."""
+    global _query_working_set_ex
+    try:
+        _kernel32.VirtualQuery.restype = ctypes.c_size_t
+        _kernel32.VirtualQuery.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_size_t
+        ]
+    except Exception as exc:  # pragma: no cover - VirtualQuery is always there
+        log.debug("[MemXray] VirtualQuery unavailable: %s", exc)
+
+    # psapi exports QueryWorkingSetEx; kernel32 exports the same thing as
+    # K32QueryWorkingSetEx on builds where the psapi stub is missing.
+    for dll, name in ((_psapi, "QueryWorkingSetEx"),
+                      (_kernel32, "K32QueryWorkingSetEx")):
+        fn = getattr(dll, name, None)
+        if fn is None:
+            continue
+        fn.restype = wintypes.BOOL
+        fn.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD]
+        _query_working_set_ex = fn
+        return
+    log.debug("[MemXray] QueryWorkingSetEx unavailable on this build")
+
+
+def residency_available() -> bool:
+    return bool(IS_WINDOWS and _query_working_set_ex is not None)
+
+
+def region_at(addr: int) -> Optional[dict]:
+    """The virtual-memory region containing addr: what backs it, and how far it
+    runs. `kind` is what decides pagefile-vs-model-file for a byte range."""
+    if not IS_WINDOWS or _kernel32 is None or not addr:
+        return None
+    mbi = MEMORY_BASIC_INFORMATION()
+    got = _kernel32.VirtualQuery(
+        ctypes.c_void_p(addr), ctypes.byref(mbi), ctypes.sizeof(mbi)
+    )
+    if got < ctypes.sizeof(mbi):
+        return None
+    kind = {
+        MEM_PRIVATE: "private",
+        MEM_MAPPED: "mapped",
+        MEM_IMAGE: "image",
+    }.get(int(mbi.Type), "unknown")
+    base = int(mbi.BaseAddress or 0)
+    return {
+        "base": base,
+        "end": base + int(mbi.RegionSize),
+        "kind": kind,
+        "committed": bool(int(mbi.State) & MEM_COMMIT),
+    }
+
+
+def working_set_residency(
+    addr: int,
+    length: int,
+    granularity: int = RESIDENCY_GRANULARITY,
+    max_points: int = RESIDENCY_MAX_POINTS,
+) -> Optional[dict]:
+    """How much of [addr, addr+length) is in this process's working set.
+
+    Probes at a stride, so `resident` is exact only when `exact` is True;
+    otherwise it is the sampled fraction scaled to the range. Reads no page
+    contents - probing must never be the thing that faults a model back in.
+    """
+    if not residency_available() or length <= 0:
+        return None
+    ps = PAGE_SIZE or 4096
+    pages = (length + ps - 1) // ps
+    stride_pages = max(1, granularity // ps)
+    if -(-pages // stride_pages) > max_points:
+        stride_pages = -(-pages // max_points)
+    points = -(-pages // stride_pages)
+    step = stride_pages * ps
+
+    handle = _kernel32.GetCurrentProcess()
+    entry_size = ctypes.sizeof(PSAPI_WORKING_SET_EX_INFORMATION)
+    resident_points = 0
+    done = 0
+    while done < points:
+        n = min(_WS_CHUNK, points - done)
+        buf = (PSAPI_WORKING_SET_EX_INFORMATION * n)()
+        for i in range(n):
+            buf[i].VirtualAddress = ctypes.c_void_p(addr + (done + i) * step)
+        if not _query_working_set_ex(handle, ctypes.byref(buf), entry_size * n):
+            return None
+        for i in range(n):
+            if buf[i].VirtualAttributes & _WS_VALID_BIT:
+                resident_points += 1
+        done += n
+
+    frac = resident_points / float(points)
+    return {
+        "points": points,
+        "resident_points": resident_points,
+        "granularity": step,
+        "exact": stride_pages == 1,
+        "resident": int(round(length * frac)),
+        "out_of_ram": length - int(round(length * frac)),
+    }
+
+
 def _init_page_size() -> None:
     global PAGE_SIZE
     pi = performance_info()
@@ -708,3 +877,4 @@ def _init_page_size() -> None:
 
 if IS_WINDOWS:
     _init_page_size()
+    _init_residency_protos()
