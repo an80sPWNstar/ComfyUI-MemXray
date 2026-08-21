@@ -4,3 +4,10 @@ __pycache__/
 .venv/
 .DS_Store
 Thumbs.db
+
+# Local-only analysis database. It reached 54 MB and GitHub started warning
+# (GH001) on every push, since each session rewrites the whole binary. Rebuild
+# it with analysis/ingest.py, or record fresh data with analysis/collect.py.
+analysis/memxray_runs.db
+analysis/*.db-wal
+analysis/*.db-shm
