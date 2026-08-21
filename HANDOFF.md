@@ -574,3 +574,260 @@ measured" unchanged. Place leads, speed is the parenthetical - the reverse of
 the original speed-first wording; the TIER_DEFS comment block still argues for
 speed-first, ignore it on this point. Bars, legend and grid headers all pull
 from TIER_DEFS.label so this was a four-string change.
+
+## 2026-08-20 19:05 -- live H3 run: placement is right, the VRAM card is dead data
+
+Checked the panel against a live MiniMax-H3 reference-video + reference-image
+job (prompt 6e53e214, ComfyUI 0.33.2, pid 22872, launched `--fast-disk
+--disable-pinned-memory`, with comfy-aimdo 0.4.13 and comfy-kitchen 0.2.31
+loaded). 40 samples over 134 s, kept in the session scratchpad, each one paired
+with an `nvidia-smi` read and a queue read.
+
+**Placement is correct - do not "fix" the near-zero placement.gpu.** MiniMaxH3
+reports `on_device` 3.0-3.22 GB while the walk finds `placement.gpu` ~1.2 MB,
+because under `--fast-disk` the weights are not registered CUDA params for
+`_storage_ranges` to count. `placementOf()` (web/js/memxray.js:895) folds
+`on_device - gpu` back into the GPU tier for the running model, so the panel
+shows ~3.2 GB on card + ~20.9 GB streamed from file. That is the truth for a
+streamed run. Verdict held `warn` throughout; `paged_out` 20.28 GB minus
+`untouched_commit` 17.97 GB = 2.31 GB = the whole system pagefile in use.
+The arithmetic checks out.
+
+**The GPU list is frozen fake data on this install.** `comfy_probe.torch_devices()`
+trusts `torch.cuda.mem_get_info`, and on this stack that call returns a
+constant: across all 40 samples `gpu0.free` was bit-identical at 393216000
+(exactly 375.0 MiB) and `gpu1.free` at 6485434367 - which is not even page
+aligned (`% 4096 == 4095`), something a real driver query never returns. The
+cache itself is live: `torch_allocated` moved 1531 -> 1934 MiB over the same
+samples. So the numbers are stale by patching, not by throttling.
+Consequences, all visible in the panel:
+- cuda:1 is reported as an RTX 3090 at 17.96 GB used. The driver had that card
+  at 245 MiB used, idle, for every one of the 40 samples.
+- cuda:0 is reported at 15.55 GB used against a driver figure oscillating
+  15361-15532 MiB - roughly 400 MiB high and never moving.
+- The RTX 5060 Ti, holding a steady ~12.2 GB, does not exist as far as the
+  panel is concerned: torch only enumerates two devices here.
+- The header's VRAM total (memxray.js:1079) sums those two cards, so ~18 GB of
+  its "used" is fiction.
+ComfyUI's own `/system_stats` returns the identical bogus `vram_free` for
+cuda:1, so MemXray is faithfully echoing torch. It is still the panel that
+presents it as a live reading.
+
+**The fix is already half-written and unwired.** `memxray/nvml.py` enumerates
+all three cards with driver-level per-process VRAM and is imported by
+`analysis/collect.py` alone - nothing in `sampler.py`, `routes.py` or the panel
+ever calls it. Put `nvml.devices()` in the `/memxray/stats` payload, drive the
+GPU rows off the driver, and keep `torch_allocated`/`torch_reserved` as the
+per-process overlay on top.
+
+Also still missing, and it is the constraint that actually bites this box:
+commit. During this run `commit_total` sat at 82.8-83.2 GB of a 95.88 GB limit
+(~87%) and the panel says nothing about it.
+
+## 2026-08-20 19:40 -- NVML wired into the live panel; ComfyUI update vetted
+
+Bryan's H3 reference-video + reference-image job finished clean before any of
+this landed (prompt 6e53e214, 1120.6 s, HD output
+`videos\minimax-h3\t2v-ref\mmh3-t2v-ref-rife-hd__00069-audio.mp4`).
+
+**Edits made, NOT yet verified live - they need a ComfyUI restart.**
+- `comfy_probe.torch_devices()` now also returns `uuid` (from
+  `torch.cuda.get_device_properties().uuid`, present on torch 2.13) and its
+  docstring records that its total/used/free are NOT to be rendered as truth.
+- `nvml.merged_devices(torch_devs)` is new: one row per DRIVER card, pairing
+  each to a torch index by UUID first and by (name, total within 2 MB) second,
+  never by position - CUDA_VISIBLE_DEVICES and CUDA_DEVICE_ORDER both renumber,
+  and on this box torch's cuda:1 is the driver's card 2. Driver figures win for
+  total/used/free; torch keeps `torch_allocated`/`torch_reserved`, and its
+  rejected claim rides along as `torch_used`/`torch_free`/`torch_disagrees` so
+  the panel can name the disagreement instead of silently picking a side.
+- `sampler.py` feeds `models["gpus"]` from that, publishes `nvml` /
+  `nvml_error` in `static`, and calls `nvml.shutdown()` on stop.
+- Panel: GPU rows are driver-sourced, a card CUDA hides is rendered and labelled
+  "(hidden)" with its used bytes coloured as somebody else's, `gpuNameFor()`
+  matches on `torch_index` instead of array position (positional lookup breaks
+  the moment a driver-only card is in the list), and the Models-view GPU
+  capacity counts only torch-visible cards while the Tiers VRAM lane counts the
+  whole box. `proc_used` splits ComfyUI's own share when NVML reports it, which
+  on Windows it never does.
+
+Verified without a restart: `merged_devices` against live NVML in a separate
+venv process, both matching paths, pairing torch1 -> driver card 2 (the 3090)
+and surfacing the 5060 Ti as visible_to_torch false. Still unverified: the
+`/memxray/stats` payload and the rendered panel.
+
+**The pending ComfyUI update is safe for this workflow.** Install is v0.33.2 on
+a detached head, diverged: master +36, this branch +9. Checked every file in
+those 36 that touches the H3 path. `MiniMaxH3ReferenceToVideo` keeps its schema
+(only `_encode_ref_audio` moved to module scope); `MiniMaxH3AddGuide` is new;
+`comfy/sd.py`'s new MiniMax branch lives inside `elif "decoder.22.bias" in sd:`
+and `minimax_h3_video_vae_fp16.safetensors` has 24 latent channels and no such
+key, so it keeps taking the dedicated H3 branch; the new over-long-prompt
+ValueError in `text_encoders/minimax.py` is nowhere near a 619-char prompt;
+`model_prefetch.py`'s CUDA-graph reset fix helps the `--fast-disk` path.
+`comfy/model_management.py` is untouched, so nothing MemXray probes moves.
+Commit 5ab2f7a2 forces `CUDA_VISIBLE_DEVICES=0` on Windows multi-GPU ONLY when
+none of --cuda-device/--default-device/CUDA_VISIBLE_DEVICES is set; Comfy
+Desktop sets `1,0` for this instance and `--disable-pinned-memory` is already
+in the launch args, so it does not fire. Update via the Desktop app - a git
+pull on a diverged detached head is the wrong tool.
+
+**Local-LLM review of the new nvml code: 0 of 5 findings real.** The lanllm
+plugin's judgment profiles leave Qwen thinking enabled and both lens calls
+returned empty (whole budget in `reasoning_content`); a hand-rolled retry with
+`enable_thinking:false` worked (3251 in / 363 out on .70). Of the five findings,
+three claimed `int()` would crash on non-numeric strings that this code's own
+producer cannot emit, one claimed a None/int sort-key TypeError that the `or 0`
+already prevents, and the last claimed a NaN in the frontend where `num()`
+coerces to 0. Do not re-run that review expecting different odds.
+
+## 2026-08-20 19:55 -- STATE ON EXIT: edits on disk, unverified, nothing committed
+
+Session ended before the restart. ComfyUI on 8188 was down at exit (Bryan was
+updating through the Desktop app), so the NVML work has never run inside
+ComfyUI.
+
+Working tree, all UNCOMMITTED on `main` (last commit still 709d036):
+- `memxray/comfy_probe.py`  +25/-3   uuid field, docstring on why torch's VRAM lies
+- `memxray/nvml.py`         +173     merged_devices() and its two helpers
+- `memxray/sampler.py`      +15/-3   wiring, static nvml flags, shutdown
+- `web/js/memxray.js`       +106/-18 driver-sourced GPU rows, hidden-card labels
+- `HANDOFF.md`                       this file
+Nothing else touched. No commit was made because none was asked for; the branch
+is `main`, so branch before committing if that is the call.
+
+**First thing the next session should do, in this order:**
+1. `curl http://127.0.0.1:8188/memxray/stats` and check `static.nvml` is true
+   with no `nvml_error`, then that `now.models.gpus` has THREE rows: cuda:0
+   5070 Ti, cuda:1 3090 (`torch_index` 1, `nvml_index` 2), and a 5060 Ti with
+   `visible_to_torch: false`. The pre-change payload had two rows and claimed
+   the idle 3090 was 18 GB used - that is the bug being fixed.
+2. Confirm `torch_disagrees` is true on the cards where torch's frozen
+   `mem_get_info` still contradicts the driver. If it is FALSE everywhere,
+   check whether the update fixed `mem_get_info` upstream before assuming the
+   merge is broken.
+3. Open the panel (browser refresh is enough for the JS) and look at the Tiers
+   VRAM lane: three tracks, the 5060 Ti one labelled "(hidden)" and coloured as
+   other-apps, and the Models-view GPU capacity counting only the two visible
+   cards.
+4. Only then trust any of it. Everything above is reasoned and unit-exercised
+   against live NVML in a separate process; none of it has been seen in the
+   panel.
+
+Also worth a look on the first post-update boot: the ComfyUI log now carries a
+startup-warning block for Windows multi-GPU (commit 5ab2f7a2). It should NOT
+fire on this instance - `CUDA_VISIBLE_DEVICES=1,0` is set by Comfy Desktop and
+`--disable-pinned-memory` is in the launch args. If it does fire, the env var
+did not survive the update and ComfyUI is down to GPU 0 only.
+
+Scratch data from this session (live samples, the diff dumps, the review) is in
+the session scratchpad and will not survive; the numbers that mattered are
+already quoted in the 19:05 and 19:40 entries.
+
+## 2026-08-20 19:50 -- 0.33.3 did NOT make anything faster; 64 GB RAM is deliberate
+
+Bryan asked whether the ComfyUI update caused a job to run "twice as fast".
+It did not. Same pipeline, same box, 50 min apart:
+
+| run | s/it | sampling | total |
+|---|---|---|---|
+| `6e53e214` pre-update, 18:38-18:57 | 32.57-33.12 | 13:34 | 1120.6 s, 247 frames |
+| post-update, sampler start 19:30:04 | 30.3-30.6 | - | in flight |
+
+6-7%, inside this box's drift. The update was **0.33.2 -> 0.33.3**, not 0.33.1
+-> 0.33.2 (0.33.2 was already installed; see the 19:40 entry).
+
+**s/it is not a speed metric on this box - it is a workload metric.** Every
+25-step run on 8188 today, from `comfyui_8188.prev2.log`: 68.53, 33.12, 22.82,
+22.53, 20.35, 16.28, 15.93, 12.84, 11.94, 10.37, 7.34, 6.52, 6.07. Same step
+count throughout; frame count and resolution set the cost. Any future "is it
+faster" claim needs the same prompt re-queued, not a different job compared.
+Consider recording both halves of such a pair in `bench_runs`.
+
+**RAM at 64 GB is Bryan's decision, not a fault.** `total RAM 65409 MB` now vs
+`98177 MB` in the 08-12/08-13 logs: the extra 32 GB was causing bluescreens and
+he pulled it. **The 2026-08-17 14:00 entry's "RAM went 64 -> 96 GB" and its
+127.9 GB commit limit are dead** - the real figures are 63.87 GiB phys and a
+95.88 GiB commit limit. Do not diagnose the missing 32 GB, and do not plan
+anything that needs 96 GB of headroom: Sequential ReadAhead now logs
+`warm budget 16.78 GiB` against the 19.53 GiB UNET, so the model never warms
+whole. The 16 GB VRAM ceiling on the 5070 Ti remains the only binding limit,
+and a quant that fits in 16 GB remains the only large lever.
+
+**Handoff items 1 and 2 from the 19:55 entry are DONE - verified live on 8188
+(pid 35416).** `static.nvml` true, `nvml_error` null. `now.models.gpus` has the
+three expected rows: 5070 Ti (torch 0 / nvml 0, 100% util, 83 C), 3090
+(torch 1 / **nvml 2**, idle, 0% util), 5060 Ti with `visible_to_torch: false`.
+`torch_disagrees` is true on both visible cards, so 0.33.3 did not fix torch's
+frozen `mem_get_info` upstream - the merge is doing its job. Items 3 and 4, the
+rendered panel, are still unwitnessed.
+
+Also new and not from this repo: a fourth Desktop instance **"Bob's AI
+Playground", port 8190, on the 5060 Ti, torch 2.12.1**, launched 19:30 with H3
+loaded (`installations.json` id `inst-1787107014486`). Its queue was empty
+during the run above, so it did not contend. Note it before attributing any
+future RAM or disk pressure on this box to 8188 alone.
+
+**Final number for the pair above (run finished 19:44:09).** Post-update run
+`a9365e60` = **943 s (00:15:43), 247 frames** - the identical frame count to
+`6e53e214`'s 247, so this is a clean matched pair, not two different jobs:
+
+| | pre-update `6e53e214` | post-update `a9365e60` |
+|---|---|---|
+| s/it | 32.57-33.12 | 30.3-30.6 |
+| sampling | 814 s | ~761 s |
+| got prompt -> sampler start | 225 s | 98 s |
+| total | 1120.6 s | 943.0 s |
+
+**1.19x end-to-end, and most of it is not sampling.** Of the 177 s saved, ~53 s
+is sampling and ~127 s is the load/encode phase before the sampler starts. That
+phase is standby-cache dependent - the 2026-08-14 bench data in
+`analysis/memxray_runs.db` already showed cache state alone moving this model's
+end-to-end by 40% (882.7 s -> 528.9 s, bench_runs 2 vs 5). So attribute the
+load-phase half to cache, not to 0.33.3, unless a cold-cache pair says
+otherwise. Nothing here supports 2x.
+
+## 2026-08-20 20:25 -- the cold pair arrived: 0.33.3 owns the 1.20x, cache does not
+
+**Retracting the "attribute the load-phase half to cache" line above.** A third
+run of the same pipeline settled it. All three are now rows 10-12 of
+`bench_runs`; all three produced 247 frames, so they are matched work.
+
+| run | s/it | sampling | load phase | total |
+|---|---|---|---|---|
+| `6e53e214` 18:38, pre-0.33.3 | 32.57 | 814 s | 225 s | 1120.6 s |
+| `a9365e60` 19:28, post, warm | 30.49 | 762 s | 98 s | 943.0 s |
+| `24a3bee8` 19:56, post, colder | 30.50 | 762 s | 92 s | 931.0 s |
+
+Run 3 is the control. Its text encoder was read **off disk at 0.52 GiB/s**
+where run 2 got the same 14.61 GiB **from standby at 2.82 GiB/s**, and its UNET
+warm budget was smaller (15.81 vs 16.78 of 19.53 GiB). It still landed 30.50
+s/it against 30.49, with a *shorter* load phase. **Sampling on this model is
+cache-insensitive, and so is the load phase.** The cache-state effect from
+2026-08-14 (bench_runs 2 vs 5) does not reproduce on this pipeline - do not
+reach for it as an explanation again without a matched pair.
+
+So 0.33.3 is worth **1.20x end-to-end**: ~7% on sampling plus ~130 s off the
+pre-sampler phase. The load-phase gain localises to one stage - VideoVAE-prepared
+-> AudioVAE-prepared was **151 s pre-update and ~48 s after, both post runs** -
+which is consistent with the `model_prefetch.py` CUDA-graph reset fix on the
+`--fast-disk` path that the 19:40 entry vetted. `--fast-disk` is therefore NOT
+"within noise" as the 2026-08-17 14:00 entry claims; that line is dead, keep the
+flag.
+
+**Attention backend is not a confound.** Bryan moved off SageAttention to the
+graph's `ModelAttentionBackend` = "comfy kitchen attention" around 2026-08-17,
+days before any of this. Both launches log `Using pytorch attention` globally
+with comfy-kitchen 0.2.31, identical either side of the update. SageAttention is
+still installed (SeedVR2 reports it available), just not routed through.
+
+**Pinned memory stays disabled, and more RAM was never the question.** The
+2026-08-17 failure was a *device* allocation - `hostbuf_read_file_slice: device
+copy failed result=2` on the 16 GB 5070 Ti during VideoVAE tiled decode - and it
+happened with 96 GB installed. Host RAM is irrelevant to it. One thing did
+change though: that A/B ran on 0.33.1, and 0.33.3 touched the same host-buffer
+prefetch path, so a retest is now defensible where it was not before. Price is
+4% sampling upside against a run that dies ~13 min in. Not taken.
+
+No restart is needed for the NVML work - it is already live from the 19:24
+launch. Only the panel JS is stale, and a Ctrl+F5 covers it.
