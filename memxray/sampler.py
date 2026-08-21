@@ -15,7 +15,7 @@ import time
 from collections import deque
 from typing import Optional
 
-from . import comfy_probe, placement, winmem
+from . import comfy_probe, nvml, placement, winmem
 
 log = logging.getLogger("MemXray")
 
@@ -102,6 +102,11 @@ class Sampler:
             "pdh_error": self._pdh.error if self._pdh else None,
             "sample_interval": SAMPLE_INTERVAL,
             "history_seconds": HISTORY_SECONDS,
+            # Whether the GPU rows are driver-sourced. When this is false the
+            # panel is back to quoting torch, which has been caught inventing
+            # VRAM figures on this stack - so it has to be visible, not silent.
+            "nvml": nvml.available(),
+            "nvml_error": nvml.init_error(),
         }
         self.static.update(comfy_probe.vram_state())
 
@@ -120,6 +125,7 @@ class Sampler:
         self._stop.set()
         if self._pdh:
             self._pdh.close()
+        nvml.shutdown()
 
     def _run(self) -> None:
         next_at = time.time()
@@ -274,7 +280,12 @@ class Sampler:
         once every 3 s rather than run on every tick."""
         if now - self._model_cache_at > 3.0:
             self._model_cache = comfy_probe.model_summary()
-            self._model_cache["gpus"] = comfy_probe.torch_devices()
+            # Driver figures win over torch's. torch is kept for its allocator
+            # numbers and its device numbering only - see
+            # nvml.merged_devices() for why its VRAM totals are not trusted.
+            self._model_cache["gpus"] = nvml.merged_devices(
+                comfy_probe.torch_devices()
+            )
             self._model_cache_at = now
         # Per-model placement (which tier each model's bytes are actually in)
         # carries its own, slower throttle: the tensor walk plus per-page probes

@@ -796,7 +796,12 @@ function updateDetailsTiles(surf) {
         modelsLine += "  |  " + gpus.map((g) => {
             const used = typeof g.used === "number" ? human(g.used) : "unknown";
             const total = typeof g.total === "number" ? human(g.total) : "unknown";
-            return `GPU${num(g.index)} ${used}/${total}`;
+            // Never print GPU<n> for a card with no cuda:n - two rows can share
+            // a display index once driver-only cards are in the list.
+            const tag = typeof g.torch_index === "number"
+                ? `GPU${g.torch_index}`
+                : `${shortGpuName(g.name, g.index)} (hidden from ComfyUI)`;
+            return `${tag} ${used}/${total}`;
         }).join("  ");
     }
     surf.modelsLine.textContent = modelsLine;
@@ -1030,8 +1035,8 @@ function buildTierSeg(cls, value, total, label) {
     return seg;
 }
 
-// A GPU whose used/free torch couldn't read - render an honest "unknown"
-// rather than a zero-width bar or a fabricated split.
+// A GPU whose used/free neither the driver nor torch could read - render an
+// honest "unknown" rather than a zero-width bar or a fabricated split.
 function buildUnknownSeg() {
     const seg = document.createElement("div");
     seg.className = "memxray-tier-seg memxray-seg-unknown";
@@ -1049,12 +1054,54 @@ function shortGpuName(name, index) {
     return stripped || `GPU ${num(index)}`;
 }
 
+// A model's device_index is a TORCH index ("cuda:1"), and the GPU list is now
+// driver-ordered and can hold cards torch never saw - so position in the array
+// is not the index. Matching on torch_index is what stops the ledger captioning
+// a model with a card ComfyUI cannot even reach.
 function gpuNameFor(model, gpus) {
     const idx = model && model.device_index;
-    if (typeof idx === "number" && gpus[idx] && gpus[idx].name) {
-        return shortGpuName(gpus[idx].name, idx);
+    if (typeof idx === "number") {
+        const g = gpus.find((x) => x.torch_index === idx);
+        if (g && g.name) return shortGpuName(g.name, idx);
     }
     return (model && model.device) || "the card";
+}
+
+// How to name a card in a label. Torch-visible cards get the cuda:N the rest of
+// the panel talks in; a driver-only card must not borrow that numbering, since
+// no cuda:N points at it.
+function gpuTag(g) {
+    return typeof g.torch_index === "number" ? `cuda:${g.torch_index}` : "driver-only";
+}
+
+// Everything the row knows, for the tooltip. The torch line is the point: when
+// the two sources disagree the panel says so instead of quietly picking one.
+function gpuTooltip(g) {
+    const lines = [`${shortGpuName(g.name, g.index)} (${gpuTag(g)})`];
+    if (typeof g.used === "number" && typeof g.free === "number") {
+        lines.push(`${human(g.used)} used, ${human(g.free)} free of ${human(g.total)}`);
+    }
+    lines.push(g.source === "nvml"
+        ? "figures read from the driver (NVML)"
+        : "figures from torch - no driver telemetry on this box");
+    if (typeof g.proc_used === "number") {
+        lines.push(`this ComfyUI holds ${human(g.proc_used)}`);
+    } else if (g.visible_to_torch !== false) {
+        lines.push("per-process VRAM is not reported on Windows, so ComfyUI's own"
+            + " share of this card cannot be split out");
+    }
+    if (num(g.torch_reserved) > 0) {
+        lines.push(`torch's allocator reserves ${human(g.torch_reserved)}`
+            + `, ${human(g.torch_allocated)} of it live`);
+    }
+    if (g.torch_disagrees && typeof g.torch_used === "number") {
+        lines.push(`ComfyUI's own reading says ${human(g.torch_used)} used - it`
+            + " disagrees with the driver and is not what this bar shows");
+    }
+    if (g.visible_to_torch === false) {
+        lines.push("ComfyUI cannot see this card, so nothing here can load onto it");
+    }
+    return lines.join("\n");
 }
 
 // --- View A: Tiers -----------------------------------------------------------
@@ -1072,10 +1119,15 @@ function updateTiersView(surf) {
     // is "where is my model, and is any of it somewhere slow".
     updateTiersModels(t, models, gpus);
 
-    // VRAM lane: one track per card. "used/free" only - there is no way to
-    // attribute VRAM to ComfyUI specifically versus any other CUDA context
-    // sharing the card, so unlike the other two lanes this one does not
-    // split out a ComfyUI slice.
+    // VRAM lane: one track per card the DRIVER reports, which is not the same
+    // set ComfyUI can use - a card hidden by CUDA_VISIBLE_DEVICES still holds
+    // VRAM and still belongs here, marked, because "why is this box out of
+    // VRAM" is a question about the whole box.
+    //
+    // ComfyUI's own slice is split out only when NVML actually attributes it
+    // (`proc_used`). On Windows/WDDM it never does - nvidia-smi reports [N/A]
+    // for every pid on this box - so the track falls back to used/free rather
+    // than guessing which context owns what.
     const vramTotal = gpus.reduce((a, g) => a + num(g.total), 0);
     const vramUsedKnown = gpus.every((g) => typeof g.used === "number");
     const vramUsed = gpus.reduce((a, g) => a + (typeof g.used === "number" ? g.used : 0), 0);
@@ -1085,20 +1137,38 @@ function updateTiersView(surf) {
     const gpuRows = gpus.length ? gpus.map((g) => {
         const row = document.createElement("div");
         row.className = "memxray-gpu-row";
+        row.title = gpuTooltip(g);
         if (gpus.length > 1) {
             const label = document.createElement("span");
             label.className = "memxray-gpu-label";
-            label.textContent = shortGpuName(g.name, g.index);
+            label.textContent = shortGpuName(g.name, g.index)
+                + (g.visible_to_torch === false ? " (hidden)" : "");
+            if (g.visible_to_torch === false) label.dataset.hidden = "1";
             row.appendChild(label);
         }
         const track = document.createElement("div");
         track.className = "memxray-tier-track";
         if (typeof g.used === "number" && typeof g.free === "number") {
             const total = Math.max(1, num(g.total) || g.used + g.free);
-            track.replaceChildren(...[
-                buildTierSeg("memxray-seg-comfy", g.used, total, "used"),
-                buildTierSeg("memxray-seg-free", g.free, total, "free"),
-            ].filter(Boolean));
+            const mine = typeof g.proc_used === "number"
+                ? Math.min(g.proc_used, g.used)
+                : null;
+            // A card ComfyUI cannot see cannot be holding ComfyUI's weights, so
+            // its used bytes are somebody else's by definition - say that in the
+            // colour rather than colouring it as ours.
+            const segs = mine !== null
+                ? [
+                    buildTierSeg("memxray-seg-comfy", mine, total, "ComfyUI"),
+                    buildTierSeg("memxray-seg-other", g.used - mine, total, "other"),
+                ]
+                : [buildTierSeg(
+                    g.visible_to_torch === false ? "memxray-seg-other" : "memxray-seg-comfy",
+                    g.used,
+                    total,
+                    g.visible_to_torch === false ? "other apps" : "used",
+                )];
+            segs.push(buildTierSeg("memxray-seg-free", g.free, total, "free"));
+            track.replaceChildren(...segs.filter(Boolean));
         } else {
             track.replaceChildren(buildUnknownSeg());
         }
@@ -1465,7 +1535,12 @@ function updateModelsView(surf) {
     cells.push(gridCell("totals", "memxray-grid-total"));
     for (const d of PLACED_TIERS) cells.push(gridNumCell(sum[d.key], d, "memxray-grid-total"));
 
-    const vramTotal = gpus.reduce((a, g) => a + num(g.total), 0);
+    // Capacity here is what a MODEL could land on, so a card CUDA has hidden
+    // does not count towards it - unlike the Tiers VRAM lane, which is about
+    // the whole box.
+    const vramTotal = gpus
+        .filter((g) => g.visible_to_torch !== false)
+        .reduce((a, g) => a + num(g.total), 0);
     const caps = {
         gpu: vramTotal || null,
         ram: num(sys.phys_total) || null,
@@ -2090,6 +2165,7 @@ function injectStyle() {
     text-transform: uppercase;
     color: var(--mx-ink-3);
 }
+.memxray-gpu-label[data-hidden="1"] { opacity: 0.6; font-style: italic; }
 .memxray-tier-track {
     display: flex;
     height: 30px;

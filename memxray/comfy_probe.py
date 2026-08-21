@@ -74,7 +74,22 @@ def loaded_models() -> list[dict]:
 
 
 def torch_devices() -> list[dict]:
-    """Per-GPU VRAM. Uses torch first; it is already imported and cheap."""
+    """What TORCH believes about each GPU. Not the driver's answer.
+
+    Measured on this box 2026-08-20, mid-run: `mem_get_info` returned a frozen
+    constant on both visible cards - gpu0 free bit-identical at 393216000 for
+    134 s while the allocator moved 1531 -> 1934 MiB, and gpu1 free at
+    6485434367, which is not even page aligned. ComfyUI's own /system_stats
+    reports the same figures, so the fiction is upstream of this pack; the
+    stack running here (`--fast-disk`, comfy-aimdo, comfy-kitchen) hands torch
+    a synthetic answer. torch also enumerates only the cards CUDA exposes: two
+    of the three cards on that box, and the hidden one was holding 12 GB.
+
+    So this stays as the PROCESS view - `torch_allocated`/`torch_reserved` are
+    real, they come from torch's own allocator - and `nvml.merged_devices()`
+    overrides total/used/free with the driver's numbers. Nothing should render
+    the figures here as the truth about a card.
+    """
     try:
         import torch
     except Exception:
@@ -91,6 +106,10 @@ def torch_devices() -> list[dict]:
         props = _safe(lambda: torch.cuda.get_device_properties(i))
         total = int(getattr(props, "total_memory", 0) or 0)
         name = _safe(lambda: torch.cuda.get_device_name(i), f"cuda:{i}")
+        # The UUID is how a torch index is matched to an NVML handle. Index is
+        # not usable for that: CUDA_VISIBLE_DEVICES and CUDA_DEVICE_ORDER both
+        # renumber, and on this box torch's cuda:1 is the driver's card 2.
+        uuid = _safe(lambda: str(getattr(props, "uuid", "") or "") or None)
 
         free_total = _safe(lambda: torch.cuda.mem_get_info(i))
         if free_total:
@@ -103,10 +122,14 @@ def torch_devices() -> list[dict]:
         out.append(
             {
                 "index": i,
+                "uuid": uuid,
                 "name": name,
                 "total": total,
                 "free": free,
                 "used": used,
+                # renamed on the way out by nvml.merged_devices(): these are
+                # torch's claim, kept only so the panel can say it was rejected
+
                 # reported even when free/used are unknown: these come from
                 # torch's own allocator and never need a foreign context
                 "torch_allocated": _safe(lambda: int(torch.cuda.memory_allocated(i)), 0),
