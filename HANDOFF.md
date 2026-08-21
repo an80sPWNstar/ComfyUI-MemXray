@@ -831,3 +831,31 @@ prefetch path, so a retest is now defensible where it was not before. Price is
 
 No restart is needed for the NVML work - it is already live from the 19:24
 launch. Only the panel JS is stale, and a Ctrl+F5 covers it.
+
+## 2026-08-20 20:45 -- history rewritten: EVERY COMMIT SHA CHANGED
+
+`analysis/memxray_runs.db` is no longer tracked (it is in `.gitignore`) and its
+four blobs were purged from all 13 commits with `git filter-branch`, then
+force-pushed to `main` and `feat/nvml-driver-gpu-rows`. `.git` went 47 MB ->
+5.2 MB. Content at HEAD is byte-identical to before the rewrite; no commit was
+pruned and no message changed.
+
+**Any SHA written in an earlier entry of this file is dead.** `709d036` is now
+`e4a6b84`, HEAD is `1e3be0f`. Do not try to `git show` an old one - map by
+commit subject instead.
+
+The DB still lives at `analysis/memxray_runs.db`, 20 tables / 552,354 rows,
+`bench_runs` through row 12. **It is now backup-free inside git** - nothing
+restores it if it is deleted, so do not `git clean -x` this worktree.
+Pre-rewrite safety copies, outside the repo and not tracked:
+`E:\vs_code_projects\ComfyUI-MemXray-git-backup-20260820\`
+- `repo-before-rewrite.bundle` (17.8 MB) - clonable, holds the old SHAs
+- `db-blobs/` - the four historical DB versions; each verified a strict subset
+  of the current file, so they are redundant and can be deleted for space
+
+Watch for one trap that already bit once tonight: while the DB was tracked on
+`main` but untracked on the feature branch, a `checkout` + `--ff-only` merge
+DELETED the working-tree file (it showed up only as `delete mode 100644` in the
+merge output). It was recovered from the blob. Now that nothing tracks it, that
+particular failure cannot recur, but it is why the file needs an out-of-repo
+copy if it ever matters again.
